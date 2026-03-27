@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.Python
+*.egg-info/
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+nohup.out
+
+# Python
+venv/
+.venv/
+
+# Frontend build
+frontend/dist/
+
+# Database
+*.db
+*.sqlite3
+
+# Spotify auth tokens (just in case)
+spotify_tokens.json
+
+# Old/experimental projects
+spotify/
+
+# Old/experimental projects
+spotify/
