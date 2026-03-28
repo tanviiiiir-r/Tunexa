@@ -213,7 +213,7 @@ export default function ShareView({ token }: ShareViewProps) {
   useEffect(() => {
     const fetchSharedCity = async () => {
       try {
-        const resp = await fetch(`/share/${token}`);
+        const resp = await fetch(`/api/share/${token}`);
         if (!resp.ok) {
           const data = await resp.json().catch(() => ({}));
           throw new Error(data.detail || 'Failed to load shared city');

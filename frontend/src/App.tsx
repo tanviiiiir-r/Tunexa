@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import CityView from './components/CityView';
 import ShareView from './components/ShareView';
+import { apiUrl } from './config';
 
 function App() {
   const [status, setStatus] = useState('Checking API...');
@@ -10,18 +11,31 @@ function App() {
   const [shareToken, setShareToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if this is a share URL
     const path = window.location.pathname;
-    const shareMatch = path.match(/^\/share\/(.+)$/);
-    if (shareMatch) {
-      setShareToken(shareMatch[1]);
-      return;
+    const matched = path.match(/^\/share\/(.+)$/);
+    if (matched) {
+      setShareToken(matched[1]);
+    } else {
+      setShareToken(null);
+      fetch('/health')
+        .then((r) => r.json())
+        .then((d) => setStatus(d.message))
+        .catch(() => setStatus('API unreachable'));
     }
 
-    fetch('/health')
-      .then((r) => r.json())
-      .then((d) => setStatus(d.message))
-      .catch(() => setStatus('API unreachable'));
+    // Listen for browser back/forward
+    const handlePopState = () => {
+      const newPath = window.location.pathname;
+      const newMatch = newPath.match(/^\/share\/(.+)$/);
+      if (newMatch) {
+        setShareToken(newMatch[1]);
+      } else {
+        setShareToken(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Check if we're returning from OAuth with an error

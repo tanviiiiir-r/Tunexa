@@ -39,7 +39,7 @@ async def startup_event():
     await init_db()
 
 
-@router.post("/share")
+@router.post("/api/share")
 async def create_share(city_data: Dict[str, Any]) -> Dict[str, str]:
     """
     Save a city snapshot and return a shareable token.
@@ -62,7 +62,7 @@ async def create_share(city_data: Dict[str, Any]) -> Dict[str, str]:
     }
 
 
-@router.get("/share/{token}")
+@router.get("/api/share/{token}")
 async def get_shared_city(token: str) -> Dict[str, Any]:
     """
     Retrieve a city snapshot by token.
@@ -91,7 +91,7 @@ async def get_shared_city(token: str) -> Dict[str, Any]:
             }
 
 
-@router.get("/share/{token}/exists")
+@router.get("/api/share/{token}/exists")
 async def check_share_exists(token: str) -> Dict[str, bool]:
     """
     Check if a share token exists and is valid.

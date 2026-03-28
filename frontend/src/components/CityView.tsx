@@ -649,7 +649,7 @@ export default function CityView() {
     if (!cityData) return;
     setSharing(true);
     try {
-      const resp = await fetch('/share', {
+      const resp = await fetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cityData)
