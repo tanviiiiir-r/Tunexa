@@ -95,26 +95,31 @@ async def callback(request: Request, code: str, state: str = None, error: str = 
     token_data = token_resp.json()
     logger.info(f"Token exchange successful")
 
-    # Store access token in signed cookie
+    # Redirect to frontend with token in URL (for cross-domain)
+    # Token is encrypted so it's safe in URL
     token_cookie = serializer.dumps({"access_token": token_data["access_token"]})
-    resp = RedirectResponse(url=FRONTEND_URL)
-    resp.set_cookie(
-        key="spotify_token",
-        value=token_cookie,
-        httponly=True,
-        samesite="lax",
-        secure=True,  # Required for HTTPS
-        max_age=3600
-    )
+    redirect_url = f"{FRONTEND_URL}?token={token_cookie}"
+    resp = RedirectResponse(url=redirect_url)
     return resp
 
 @router.get("/me")
 async def get_me(request: Request):
+    # Try cookie first, then Authorization header
     signed = request.cookies.get("spotify_token")
+    auth_header = request.headers.get("Authorization", "")
+
+    if auth_header.startswith("Bearer "):
+        signed = auth_header.replace("Bearer ", "")
+
     if not signed:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    token_data = serializer.loads(signed)
-    access_token = token_data["access_token"]
+
+    try:
+        token_data = serializer.loads(signed)
+        access_token = token_data["access_token"]
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
     async with httpx.AsyncClient() as client:
         profile_resp = await client.get(
             "https://api.spotify.com/v1/me",
