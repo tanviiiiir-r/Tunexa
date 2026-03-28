@@ -95,15 +95,16 @@ def calculate_building_dimensions(
     song_count: int,
     popularity: int
 ) -> Dict[str, float]:
-    """Calculate building dimensions - exaggerated for visual variety"""
-    # More dramatic scaling so differences are visible
-    height = min(max(listening_minutes / 30 * 15, 8), 120)  # Taller range, lower min
-    width = min(max(song_count * 2.5, 4), 30)  # Wider range
-    depth = min(max(popularity / 8, 4), 20)  # More depth variation
+    """Calculate building dimensions - SQUARE like GitHub contributions"""
+    # GitHub-style: Square base, height represents activity
+    # Square buildings (width = depth) for grid layout
+    base_size = 8  # Uniform square base
+    height = min(max(listening_minutes / 30 * 15, 10), 150)  # Height varies by listening time
+
     return {
-        "width": width,
+        "width": base_size,
         "height": height,
-        "depth": depth
+        "depth": base_size  # Square base!
     }
 
 def is_recently_played(last_played: str) -> bool:
@@ -130,14 +131,14 @@ def generate_windows(songs: List[Dict]) -> List[Dict]:
         })
     return windows
 
-def generate_radial_layout(
+def generate_grid_layout(
     artists: List[Dict],
     tracks: List[Dict],
     recently_played: List[Dict]
 ) -> tuple[List[Dict], Dict[str, Dict]]:
     """
-    Generate radial layout for My City mode
-    Returns buildings and district info used
+    Generate GRID layout like GitHub contributions
+    Buildings arranged in neat rows/columns by district
     """
     # Build genre frequency map
     genre_counts = {}
@@ -163,32 +164,49 @@ def generate_radial_layout(
     # Create buildings
     buildings = []
 
-    # Process each district
-    for genre_key, data in district_artists.items():
+    # GitHub-style grid parameters
+    BUILDING_SPACING = 15  # Space between buildings
+    DISTRICT_SPACING = 200  # Space between districts
+    GRID_SIZE = 7  # 7x7 grid per district (like GitHub's 7 days x weeks)
+
+    # Position districts in a larger grid
+    district_positions = [
+        (0, 0), (1, 0), (2, 0),  # Row 1: 3 districts
+        (0, 1), (1, 1), (2, 1),  # Row 2: 3 districts
+        (0, 2), (1, 2),          # Row 3: 2 districts
+    ]
+
+    district_list = list(district_artists.items())
+
+    for idx, (genre_key, data) in enumerate(district_list):
         district_artists_list = data["artists"]
         district_info = data["info"]
 
-        # Sort by popularity/listening
+        # Sort by popularity (most popular first = in front)
         district_artists_list.sort(
             key=lambda a: a.get("popularity", 0),
             reverse=True
         )
 
-        # Calculate district center position
-        angle_rad = math.radians(district_info["direction"])
-        top_genre_name = top_genres[0][0] if top_genres else "pop"
-        distance = 0 if genre_key == top_genre_name else 150
+        # Get district grid position
+        if idx < len(district_positions):
+            district_col, district_row = district_positions[idx]
+        else:
+            # Extra districts go to the right
+            district_col, district_row = idx % 3, idx // 3
 
-        district_center_x = distance * math.cos(angle_rad)
-        district_center_z = distance * math.sin(angle_rad)
+        district_offset_x = district_col * DISTRICT_SPACING
+        district_offset_z = district_row * DISTRICT_SPACING
 
-        # Position artists within district
+        # Position artists in GRID within district
         for i, artist in enumerate(district_artists_list):
-            artist_angle = (i / max(len(district_artists_list), 1)) * 2 * math.pi
-            radius = 40 + (i * 25)
+            # Grid position: row and column
+            row = i // GRID_SIZE
+            col = i % GRID_SIZE
 
-            x = district_center_x + radius * math.cos(artist_angle)
-            z = district_center_z + radius * math.sin(artist_angle)
+            # Calculate position in grid
+            x = district_offset_x + (col * BUILDING_SPACING)
+            z = district_offset_z + (row * BUILDING_SPACING)
 
             # Get artist tracks
             artist_tracks = [
@@ -196,7 +214,7 @@ def generate_radial_layout(
                 if any(a.get("id") == artist.get("id") for a in t.get("artists", []))
             ]
 
-            # Calculate real listening minutes from tracks
+            # Calculate listening data
             listening_ms = sum(t.get("duration_ms", 0) for t in artist_tracks)
             listening_minutes = listening_ms / 60000 if listening_ms > 0 else artist.get("popularity", 50) / 100 * 150
             song_count = len(artist_tracks) if artist_tracks else artist.get("popularity", 50) // 5
@@ -208,7 +226,7 @@ def generate_radial_layout(
                 popularity
             )
 
-            # Use district color for building
+            # Use district color
             building_color = district_info["color"]
 
             # Check if recently played
@@ -270,6 +288,165 @@ def generate_radial_layout(
 
     return buildings, district_artists
 
+
+def generate_grid_layout(
+    artists: List[Dict],
+    tracks: List[Dict],
+    recently_played: List[Dict]
+) -> tuple[List[Dict], Dict[str, Dict]]:
+    """
+    Generate GRID layout like GitHub contribution graph
+    Buildings organized in rows by district, columns by popularity
+    """
+    # Build genre frequency map
+    genre_counts = {}
+    for artist in artists:
+        for genre in artist.get("genres", []):
+            if genre:
+                genre_counts[genre] = genre_counts.get(genre, 0) + 1
+
+    # Group artists by genre (district)
+    district_artists = {}
+    for artist in artists:
+        genre_key, district_info = map_genre_to_district(artist.get("genres", []))
+        if genre_key not in district_artists:
+            district_artists[genre_key] = {
+                "artists": [],
+                "info": district_info
+            }
+        district_artists[genre_key]["artists"].append(artist)
+
+    buildings = []
+
+    # Sort districts by number of artists (most popular first)
+    sorted_districts = sorted(
+        district_artists.items(),
+        key=lambda x: len(x[1]["artists"]),
+        reverse=True
+    )
+
+    # GRID layout parameters
+    BUILDING_SPACING = 15  # Space between buildings
+    ROW_SPACING = 50  # Space between district rows
+    BUILDINGS_PER_ROW = 7  # Buildings per row (like GitHub's 7 days)
+
+    current_row = 0
+
+    for genre_key, data in sorted_districts:
+        district_artists_list = data["artists"]
+        district_info = data["info"]
+
+        # Sort by popularity within district
+        district_artists_list.sort(
+            key=lambda a: a.get("popularity", 0),
+            reverse=True
+        )
+
+        # Calculate row position for this district
+        row_z = current_row * ROW_SPACING
+
+        # Place buildings in grid within district
+        for i, artist in enumerate(district_artists_list):
+            # Grid position calculation
+            col = i % BUILDINGS_PER_ROW
+            row_in_district = i // BUILDINGS_PER_ROW
+
+            # Position in grid
+            x = (col - BUILDINGS_PER_ROW // 2) * BUILDING_SPACING
+            z = row_z + (row_in_district * BUILDING_SPACING)
+
+            # Get artist tracks
+            artist_tracks = [
+                t for t in tracks
+                if any(a.get("id") == artist.get("id") for a in t.get("artists", []))
+            ]
+
+            # Calculate metrics
+            listening_ms = sum(t.get("duration_ms", 0) for t in artist_tracks)
+            listening_minutes = listening_ms / 60000 if listening_ms > 0 else artist.get("popularity", 50) / 100 * 150
+            song_count = len(artist_tracks) if artist_tracks else artist.get("popularity", 50) // 5
+            popularity = artist.get("popularity", 50)
+
+            dimensions = calculate_building_dimensions(
+                listening_minutes,
+                song_count,
+                popularity
+            )
+
+            # Check if recently played
+            last_played = None
+            for rp in recently_played:
+                if rp.get("track", {}).get("artists", [{}])[0].get("id") == artist.get("id"):
+                    last_played = rp.get("played_at")
+                    break
+
+            is_recent = is_recently_played(last_played) if last_played else False
+
+            # Generate windows
+            artist_tracks_limited = artist_tracks[:10]
+            windows = generate_windows(artist_tracks_limited)
+
+            building = {
+                "id": f"building_{artist['id']}",
+                "artist_id": artist["id"],
+                "artist_name": artist["name"],
+                "artist_image_url": artist.get("images", [{}])[0].get("url", ""),
+                "position": {
+                    "x": round(x, 2),
+                    "y": 0,
+                    "z": round(z, 2)
+                },
+                "dimensions": dimensions,
+                "style": {
+                    "color": district_info["color"],
+                    "brightness": popularity / 100,
+                    "glow_intensity": 1.0 if is_recent else 0.3,
+                    "animation": is_recent,
+                    "texture": "glass",
+                    "roof_style": "flat"
+                },
+                "metadata": {
+                    "genre": genre_key,
+                    "language": detect_language(artist["name"], artist.get("genres", [])),
+                    "listening_minutes": listening_minutes,
+                    "song_count": song_count,
+                    "popularity": popularity,
+                    "followers": artist.get("followers", {}).get("total", 0),
+                    "last_played": last_played
+                },
+                "windows": windows,
+                "floors": [
+                    {
+                        "floor_number": j + 1,
+                        "track_id": t.get("id"),
+                        "track_name": t.get("name"),
+                        "album_cover": t.get("album", {}).get("images", [{}])[0].get("url", ""),
+                        "duration_ms": t.get("duration_ms", 0),
+                        "preview_url": t.get("preview_url"),
+                        "is_lit": is_recently_played(t.get("played_at", "")),
+                    }
+                    for j, t in enumerate(artist_tracks_limited)
+                ]
+            }
+            buildings.append(building)
+
+        # Move to next row for next district
+        district_rows = (len(district_artists_list) + BUILDINGS_PER_ROW - 1) // BUILDINGS_PER_ROW
+        current_row += max(district_rows, 1) + 1  # +1 for gap between districts
+
+    return buildings, district_artists
+
+def generate_radial_layout(
+    artists: List[Dict],
+    tracks: List[Dict],
+    recently_played: List[Dict]
+) -> tuple[List[Dict], Dict[str, Dict]]:
+    """
+    [LEGACY] Generate radial layout for My City mode
+    Kept for backwards compatibility, but grid is now default
+    """
+    return generate_grid_layout(artists, tracks, recently_played)
+
 def generate_city_payload(
     artists: List[Dict],
     tracks: List[Dict],
@@ -279,8 +456,8 @@ def generate_city_payload(
     """
     Main function to generate complete city payload
     """
-    # Generate buildings with radial layout (audio_features not used for colors)
-    buildings, district_artists = generate_radial_layout(artists, tracks, recently_played)
+    # Generate buildings with GRID layout (GitHub-style)
+    buildings, district_artists = generate_grid_layout(artists, tracks, recently_played)
 
     # Create district info from actual districts used
     districts = []
