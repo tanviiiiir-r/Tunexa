@@ -55,3 +55,4 @@ async def debug_config():
         "client_id_set": bool(os.getenv("SPOTIFY_CLIENT_ID")),
         "client_secret_set": bool(os.getenv("SPOTIFY_CLIENT_SECRET")),
     }
+
