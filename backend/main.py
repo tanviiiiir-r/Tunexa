@@ -6,8 +6,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .auth import router as auth_router
 from .data import router as data_router
+from .share import router as share_router, init_db
 
 app = FastAPI()
+
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    await init_db()
 
 # CORS for local dev
 app.add_middleware(
@@ -20,6 +26,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(data_router)
+app.include_router(share_router)
 
 @app.get("/health")
 async def health_check():

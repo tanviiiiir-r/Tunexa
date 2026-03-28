@@ -1,13 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import CityView from './components/CityView';
+import ShareView from './components/ShareView';
 
 function App() {
   const [status, setStatus] = useState('Checking API...');
   const [user, setUser] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCity, setShowCity] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check if this is a share URL
+    const path = window.location.pathname;
+    const shareMatch = path.match(/^\/share\/(.+)$/);
+    if (shareMatch) {
+      setShareToken(shareMatch[1]);
+      return;
+    }
+
     fetch('/health')
       .then((r) => r.json())
       .then((d) => setStatus(d.message))
@@ -45,8 +55,16 @@ function App() {
   };
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    // Don't fetch profile if this is a share view
+    if (!shareToken) {
+      fetchProfile();
+    }
+  }, [shareToken]);
+
+  // If viewing a shared city, render ShareView
+  if (shareToken) {
+    return <ShareView token={shareToken} />;
+  }
 
   // If showing city, render the CityView component
   if (showCity) {

@@ -1,3 +1,4 @@
 httpx
 itsdangerous
 starlette
+aiosqlite

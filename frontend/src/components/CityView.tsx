@@ -597,6 +597,8 @@ export default function CityView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
 
   const fetchCity = async () => {
     setLoading(true);
@@ -641,6 +643,28 @@ export default function CityView() {
 
   const handleClosePanel = () => {
     setSelectedBuilding(null);
+  };
+
+  const handleShare = async () => {
+    if (!cityData) return;
+    setSharing(true);
+    try {
+      const resp = await fetch('/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cityData)
+      });
+      if (!resp.ok) throw new Error('Failed to create share link');
+      const data = await resp.json();
+      const fullUrl = `${window.location.origin}/share/${data.token}`;
+      setShareUrl(fullUrl);
+      await navigator.clipboard.writeText(fullUrl);
+    } catch (err) {
+      console.error('Share failed:', err);
+      alert('Failed to create share link');
+    } finally {
+      setSharing(false);
+    }
   };
 
   if (loading) {
@@ -726,11 +750,41 @@ export default function CityView() {
             marginTop: '0.5rem',
             padding: '0.5rem 1rem',
             fontSize: '0.8rem',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            marginRight: '0.5rem'
           }}
         >
           Regenerate
         </button>
+        <button
+          onClick={handleShare}
+          disabled={sharing}
+          style={{
+            marginTop: '0.5rem',
+            padding: '0.5rem 1rem',
+            fontSize: '0.8rem',
+            cursor: sharing ? 'default' : 'pointer',
+            background: sharing ? '#1DB954' : '#333',
+            color: 'white',
+            border: '1px solid #1DB954',
+            borderRadius: '4px'
+          }}
+        >
+          {sharing ? '✓ Copied!' : '🔗 Share'}
+        </button>
+        {shareUrl && (
+          <div style={{
+            marginTop: '0.5rem',
+            fontSize: '0.75rem',
+            wordBreak: 'break-all',
+            color: '#1DB954',
+            padding: '0.5rem',
+            background: 'rgba(29, 185, 84, 0.1)',
+            borderRadius: '4px'
+          }}>
+            {shareUrl}
+          </div>
+        )}
       </div>
 
       {/* Instruction Overlay */}
