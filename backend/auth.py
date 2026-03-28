@@ -24,6 +24,7 @@ pkce_store = {}
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:5173")
 
 def generate_pkce_pair() -> tuple[str, str]:
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(64)).decode().rstrip("=")
@@ -96,13 +97,13 @@ async def callback(request: Request, code: str, state: str = None, error: str = 
 
     # Store access token in signed cookie
     token_cookie = serializer.dumps({"access_token": token_data["access_token"]})
-    resp = RedirectResponse(url="/")
+    resp = RedirectResponse(url=FRONTEND_URL)
     resp.set_cookie(
         key="spotify_token",
         value=token_cookie,
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=True,  # Required for HTTPS
         max_age=3600
     )
     return resp
@@ -126,6 +127,6 @@ async def get_me(request: Request):
 @router.get("/logout")
 async def logout():
     """Clear auth cookies"""
-    resp = RedirectResponse(url="/")
+    resp = RedirectResponse(url=FRONTEND_URL)
     resp.delete_cookie("spotify_token")
     return resp
