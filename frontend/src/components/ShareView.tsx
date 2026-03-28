@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
+import { apiUrl } from '../config';
+import { apiUrl } from '../config';
 
 interface Floor {
   floor_number: number;
@@ -213,7 +215,7 @@ export default function ShareView({ token }: ShareViewProps) {
   useEffect(() => {
     const fetchSharedCity = async () => {
       try {
-        const resp = await fetch(`/api/share/${token}`);
+        const resp = await fetch(apiUrl(`/api/share/${token}`));
         if (!resp.ok) {
           const data = await resp.json().catch(() => ({}));
           throw new Error(data.detail || 'Failed to load shared city');

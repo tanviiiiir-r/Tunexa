@@ -17,7 +17,7 @@ function App() {
       setShareToken(matched[1]);
     } else {
       setShareToken(null);
-      fetch('/health')
+      fetch(apiUrl('/health'))
         .then((r) => r.json())
         .then((d) => setStatus(d.message))
         .catch(() => setStatus('API unreachable'));
@@ -51,15 +51,15 @@ function App() {
 
   const login = () => {
     setError(null);
-    window.location.href = '/login';
+    window.location.href = apiUrl('/login');
   };
 
   const logout = () => {
-    window.location.href = '/logout';
+    window.location.href = apiUrl('/logout');
   };
 
   const fetchProfile = async () => {
-    const resp = await fetch('/me');
+    const resp = await fetch(apiUrl('/me'));
     if (resp.ok) {
       setUser(await resp.json());
       setError(null);

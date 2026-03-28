@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Box } from '@react-three/drei';
 import * as THREE from 'three';
+import { apiUrl } from '../config';
 
 interface Floor {
   floor_number: number;
@@ -604,7 +605,7 @@ export default function CityView() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch('/city_payload');
+      const resp = await fetch(apiUrl('/city_payload'));
       if (!resp.ok) {
         const errData = await resp.json().catch(() => ({}));
         throw new Error(errData.detail || `Failed to fetch: ${resp.status}`);
@@ -649,7 +650,7 @@ export default function CityView() {
     if (!cityData) return;
     setSharing(true);
     try {
-      const resp = await fetch('/api/share', {
+      const resp = await fetch(apiUrl('/api/share'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cityData)
