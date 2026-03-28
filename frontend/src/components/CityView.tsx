@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Box } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -57,12 +57,23 @@ interface CityData {
   };
 }
 
-// Building Component with Click Handler
+// Building Component with Click Handler and Pulse Animation
 function BuildingMesh({ building, onClick }: { building: Building; onClick: (building: Building) => void }) {
   const position = building.position || { x: 0, y: 0, z: 0 };
   const dimensions = building.dimensions || { width: 10, height: 30, depth: 10 };
   const style = building.style || { color: '#808080', brightness: 0.5, glow_intensity: 0.3, animation: false };
   const meshRef = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+
+  // Pulse animation for recently played buildings
+  useFrame((state) => {
+    if (materialRef.current && style.animation) {
+      // Create a pulsing effect using sine wave
+      const pulse = Math.sin(state.clock.elapsedTime * 3) * 0.3 + 0.7; // Oscillates between 0.4 and 1.0
+      const baseIntensity = (style.glow_intensity || 0.5) * 0.5;
+      materialRef.current.emissiveIntensity = baseIntensity * pulse;
+    }
+  });
 
   // Create windows
   const windows = useMemo(() => {
@@ -116,9 +127,10 @@ function BuildingMesh({ building, onClick }: { building: Building; onClick: (bui
       <mesh ref={meshRef}>
         <boxGeometry args={[dimensions.width, dimensions.height, dimensions.depth]} />
         <meshStandardMaterial
+          ref={materialRef}
           color={style.color || '#808080'}
           emissive={style.color || '#808080'}
-          emissiveIntensity={hovered ? 0.5 : (style.animation ? (style.glow_intensity || 0.5) * 0.3 : 0.1)}
+          emissiveIntensity={hovered ? 0.6 : (style.animation ? 0 : 0.1 + (style.brightness || 0) * 0.2)}
         />
       </mesh>
 
