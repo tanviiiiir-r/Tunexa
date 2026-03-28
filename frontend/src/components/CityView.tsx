@@ -593,7 +593,11 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
 }
 
 // Main City View Component
-export default function CityView() {
+interface CityViewProps {
+  authToken?: string | null;
+}
+
+export default function CityView({ authToken }: CityViewProps) {
   const [cityData, setCityData] = useState<CityData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -602,10 +606,19 @@ export default function CityView() {
   const [sharing, setSharing] = useState(false);
 
   const fetchCity = async () => {
+    if (!authToken) {
+      setError('Not authenticated');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch(apiUrl('/city_payload'));
+      const resp = await fetch(apiUrl('/city_payload'), {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
       if (!resp.ok) {
         const errData = await resp.json().catch(() => ({}));
         throw new Error(errData.detail || `Failed to fetch: ${resp.status}`);
@@ -647,12 +660,15 @@ export default function CityView() {
   };
 
   const handleShare = async () => {
-    if (!cityData) return;
+    if (!cityData || !authToken) return;
     setSharing(true);
     try {
       const resp = await fetch(apiUrl('/api/share'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
         body: JSON.stringify(cityData)
       });
       if (!resp.ok) throw new Error('Failed to create share link');
