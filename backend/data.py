@@ -3,6 +3,7 @@ import traceback
 from fastapi import APIRouter, Request, HTTPException
 from itsdangerous import URLSafeSerializer
 import os
+from .city_generator import generate_city_payload
 
 router = APIRouter()
 
@@ -62,20 +63,26 @@ async def city_payload(request: Request):
             print(f"Parse error: {e}")
             raise HTTPException(status_code=502, detail="Failed to parse Spotify response")
 
-        # Collect track IDs for audio features
-        track_ids = [t["id"] for t in tracks]
-        features_resp = await client.get(
-            "https://api.spotify.com/v1/audio-features",
-            params={"ids": ",".join(track_ids)},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        features = features_resp.json().get("audio_features", []) if features_resp.is_success else []
+        print(f"Got {len(artists)} artists, {len(tracks)} tracks, {len(recent)} recent plays")
 
-        # Assemble payload
-        payload = {
-            "artists": artists,
-            "tracks": tracks,
-            "recently_played": recent,
-            "audio_features": features,
-        }
-        return payload
+        # Fetch audio features for tracks
+        track_ids = [t["id"] for t in tracks if t.get("id")]
+        audio_features = []
+        if track_ids:
+            features_resp = await client.get(
+                "https://api.spotify.com/v1/audio-features",
+                params={"ids": ",".join(track_ids[:100])},  # API limit is 100
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if features_resp.is_success:
+                audio_features = features_resp.json().get("audio_features", [])
+                # Filter out None values
+                audio_features = [f for f in audio_features if f]
+            print(f"Fetched {len(audio_features)} audio features")
+
+        # Generate the city layout using our generator
+        city_data = generate_city_payload(artists, tracks, recent, audio_features)
+
+        print(f"Generated city with {len(city_data['buildings'])} buildings and {len(city_data['districts'])} districts")
+
+        return city_data

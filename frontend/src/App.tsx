@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import CityView from './components/CityView';
 
 function App() {
   const [status, setStatus] = useState('Checking API...');
-  const [user, setUser] = useState(null);
-  const [error, setError] = useState(null);
+  const [user, setUser] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showCity, setShowCity] = useState(false);
 
   useEffect(() => {
     fetch('/health')
@@ -46,19 +48,10 @@ function App() {
     fetchProfile();
   }, []);
 
-  const fetchPayload = async () => {
-    setError(null);
-    const resp = await fetch('/city_payload');
-    if (resp.ok) {
-      const data = await resp.json();
-      console.log('city_payload:', data);
-      alert(`Payload loaded! ${data.artists?.length || 0} artists, ${data.tracks?.length || 0} tracks`);
-    } else {
-      const err = await resp.json();
-      console.error('Failed to fetch payload:', err);
-      setError(err.detail || 'Failed to fetch payload');
-    }
-  };
+  // If showing city, render the CityView component
+  if (showCity) {
+    return <CityView />;
+  }
 
   return (
     <div style={{ fontFamily: 'sans-serif', padding: '2rem' }}>
@@ -77,17 +70,41 @@ function App() {
             <img src={user.images[0].url} alt="avatar" width={80} style={{ borderRadius: '50%' }} />
           )}
           <div style={{ marginTop: '1rem' }}>
-            <button onClick={fetchPayload} style={{ marginRight: '0.5rem' }}>
-              Fetch City Payload
+            <button
+              onClick={() => setShowCity(true)}
+              style={{
+                marginRight: '0.5rem',
+                padding: '1rem 2rem',
+                fontSize: '1.2rem',
+                background: '#1DB954',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              View My City
             </button>
-            <button onClick={logout} style={{ background: '#dc3545', color: 'white' }}>
+            <button
+              onClick={logout}
+              style={{
+                background: '#dc3545',
+                color: 'white',
+                padding: '1rem 2rem',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
               Log Out
             </button>
           </div>
         </div>
       ) : (
         <div>
-          <button onClick={login}>Log in with Spotify</button>
+          <button onClick={login} style={{ padding: '1rem 2rem', fontSize: '1.2rem', cursor: 'pointer' }}>
+            Log in with Spotify
+          </button>
           <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
             First time? Make sure your Spotify app has the redirect URI configured:
             <code style={{ display: 'block', marginTop: '0.5rem', padding: '0.5rem', background: '#f5f5f5' }}>

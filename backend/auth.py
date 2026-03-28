@@ -14,8 +14,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Serializer for signed cookies (replace secret with env var in prod)
+# Serializer for signed cookies
 serializer = URLSafeSerializer(os.getenv("SESSION_SECRET", "super-secret-key"), salt="session")
+
+# Simple in-memory store for PKCE verifiers (for local dev only - use Redis in production)
+# Key: state parameter, Value: pkce_verifier
+pkce_store = {}
 
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
@@ -32,6 +36,10 @@ def generate_pkce_pair() -> tuple[str, str]:
 async def login(request: Request):
     verifier, challenge = generate_pkce_pair()
 
+    # Generate a state parameter to track this auth request
+    state = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("=")
+    pkce_store[state] = verifier
+
     # Spotify auth URL
     auth_url = "https://accounts.spotify.com/authorize?" + urlencode({
         "client_id": SPOTIFY_CLIENT_ID,
@@ -39,44 +47,32 @@ async def login(request: Request):
         "redirect_uri": REDIRECT_URI,
         "code_challenge_method": "S256",
         "code_challenge": challenge,
+        "state": state,
         "scope": "user-read-email user-read-private user-top-read user-read-recently-played",
     })
 
     resp = RedirectResponse(url=auth_url)
-    signed = serializer.dumps({"pkce_verifier": verifier})
-
-    # Cookie settings: secure=False for local dev, samesite=lax for OAuth redirect
-    resp.set_cookie(
-        key="spotify_pkce",
-        value=signed,
-        httponly=True,
-        samesite="lax",
-        secure=False,  # Local dev only
-        max_age=600    # 10 minutes
-    )
-    logger.info(f"Login: Set PKCE cookie, redirecting to Spotify")
+    logger.info(f"Login: Stored PKCE for state={state[:8]}..., redirecting to Spotify")
     return resp
 
 @router.get("/callback")
-async def callback(request: Request, code: str, error: str = None):
-    logger.info(f"Callback received: code present={bool(code)}, cookies={request.cookies.keys()}")
+async def callback(request: Request, code: str, state: str = None, error: str = None):
+    logger.info(f"Callback received: code present={bool(code)}, state={state}")
 
     if error:
         raise HTTPException(status_code=400, detail=f"Spotify error: {error}")
 
-    signed = request.cookies.get("spotify_pkce")
-    if not signed:
-        logger.error("Missing PKCE cookie in callback")
-        raise HTTPException(status_code=400, detail="Missing PKCE cookie - try logging in again")
+    if not state:
+        logger.error("Missing state parameter")
+        raise HTTPException(status_code=400, detail="Missing state parameter")
 
-    try:
-        data = serializer.loads(signed)
-        verifier = data["pkce_verifier"]
-    except Exception as e:
-        logger.error(f"Failed to deserialize PKCE cookie: {e}")
-        raise HTTPException(status_code=400, detail="Invalid PKCE cookie")
+    # Retrieve verifier from store
+    verifier = pkce_store.pop(state, None)
+    if not verifier:
+        logger.error(f"No PKCE verifier found for state={state[:8]}...")
+        raise HTTPException(status_code=400, detail="Session expired - try logging in again")
 
-    logger.info(f"Exchanging code for token with verifier present")
+    logger.info(f"Exchanging code for token")
 
     token_resp = await httpx.AsyncClient().post(
         "https://accounts.spotify.com/api/token",
@@ -107,10 +103,8 @@ async def callback(request: Request, code: str, error: str = None):
         httponly=True,
         samesite="lax",
         secure=False,
-        max_age=3600  # 1 hour
+        max_age=3600
     )
-    # Clean up PKCE cookie
-    resp.delete_cookie("spotify_pkce")
     return resp
 
 @router.get("/me")
@@ -134,5 +128,4 @@ async def logout():
     """Clear auth cookies"""
     resp = RedirectResponse(url="/")
     resp.delete_cookie("spotify_token")
-    resp.delete_cookie("spotify_pkce")
     return resp
