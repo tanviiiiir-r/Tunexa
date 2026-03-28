@@ -95,10 +95,11 @@ def calculate_building_dimensions(
     song_count: int,
     popularity: int
 ) -> Dict[str, float]:
-    """Calculate building dimensions"""
-    height = min(max(listening_minutes / 60 * 10, 10), 100)
-    width = min(max(song_count * 2, 5), 20)
-    depth = min(max(popularity / 10, 5), 15)
+    """Calculate building dimensions - exaggerated for visual variety"""
+    # More dramatic scaling so differences are visible
+    height = min(max(listening_minutes / 30 * 15, 8), 120)  # Taller range, lower min
+    width = min(max(song_count * 2.5, 4), 30)  # Wider range
+    depth = min(max(popularity / 8, 4), 20)  # More depth variation
     return {
         "width": width,
         "height": height,
