@@ -131,7 +131,5 @@ async def get_me(request: Request):
 
 @router.get("/logout")
 async def logout():
-    """Clear auth cookies"""
-    resp = RedirectResponse(url=FRONTEND_URL)
-    resp.delete_cookie("spotify_token")
-    return resp
+    """Clear auth - frontend handles token removal"""
+    return {"message": "Logged out"}

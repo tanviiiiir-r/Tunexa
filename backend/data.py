@@ -10,11 +10,21 @@ router = APIRouter()
 serializer = URLSafeSerializer(os.getenv("SESSION_SECRET", "super-secret-key"), salt="session")
 
 async def get_access_token(request: Request) -> str:
+    # Try cookie first, then Authorization header
     signed = request.cookies.get("spotify_token")
+    auth_header = request.headers.get("Authorization", "")
+
+    if auth_header.startswith("Bearer "):
+        signed = auth_header.replace("Bearer ", "")
+
     if not signed:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    token_data = serializer.loads(signed)
-    return token_data["access_token"]
+
+    try:
+        token_data = serializer.loads(signed)
+        return token_data["access_token"]
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 @router.get("/city_payload")
 async def city_payload(request: Request):

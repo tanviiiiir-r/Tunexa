@@ -3,7 +3,6 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { apiUrl } from '../config';
-import { apiUrl } from '../config';
 
 interface Floor {
   floor_number: number;

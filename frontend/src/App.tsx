@@ -9,6 +9,26 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [showCity, setShowCity] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(localStorage.getItem('spotify_token'));
+
+  // Check for token in URL (from OAuth callback) and store it
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenParam = urlParams.get('token');
+    const errorParam = urlParams.get('error');
+
+    if (tokenParam) {
+      // Store token and clean URL
+      localStorage.setItem('spotify_token', tokenParam);
+      setAuthToken(tokenParam);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    if (errorParam) {
+      setError(`OAuth error: ${errorParam}`);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -38,32 +58,37 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Check if we're returning from OAuth with an error
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const errorParam = urlParams.get('error');
-    if (errorParam) {
-      setError(`OAuth error: ${errorParam}`);
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
-
   const login = () => {
     setError(null);
     window.location.href = apiUrl('/login');
   };
 
   const logout = () => {
+    localStorage.removeItem('spotify_token');
+    setAuthToken(null);
+    setUser(null);
     window.location.href = apiUrl('/logout');
   };
 
   const fetchProfile = async () => {
-    const resp = await fetch(apiUrl('/me'));
+    if (!authToken) {
+      setUser(null);
+      return;
+    }
+
+    const resp = await fetch(apiUrl('/me'), {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+
     if (resp.ok) {
       setUser(await resp.json());
       setError(null);
     } else if (resp.status === 401) {
+      // Token expired or invalid
+      localStorage.removeItem('spotify_token');
+      setAuthToken(null);
       setUser(null);
     }
   };
@@ -73,7 +98,7 @@ function App() {
     if (!shareToken) {
       fetchProfile();
     }
-  }, [shareToken]);
+  }, [shareToken, authToken]);
 
   // If viewing a shared city, render ShareView
   if (shareToken) {
@@ -82,7 +107,7 @@ function App() {
 
   // If showing city, render the CityView component
   if (showCity) {
-    return <CityView />;
+    return <CityView authToken={authToken} />;
   }
 
   return (
