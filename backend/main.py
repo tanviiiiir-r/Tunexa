@@ -36,22 +36,13 @@ async def health_check():
 
 @app.get("/debug/config")
 async def debug_config():
-    """Debug endpoint to verify FRONTEND_URL is set (no secrets exposed)"""
+    """Debug endpoint to verify environment config (no secrets exposed)"""
     frontend_url = os.getenv("FRONTEND_URL", "NOT_SET")
     return {
         "frontend_url_configured": frontend_url != "NOT_SET",
         "frontend_url": frontend_url if frontend_url != "NOT_SET" else None,
         "redirect_uri": os.getenv("SPOTIFY_REDIRECT_URI", "NOT_SET"),
-        "client_id_set": bool(os.getenv("SPOTIFY_CLIENT_ID")),
-    }
-
-@app.get("/debug/config")
-async def debug_config():
-    """Debug endpoint to verify environment config"""
-    return {
-        "frontend_url": os.getenv("FRONTEND_URL", "NOT SET - using default"),
-        "redirect_uri": os.getenv("SPOTIFY_REDIRECT_URI", "NOT SET"),
-        "allowed_origins": os.getenv("ALLOWED_ORIGINS", "NOT SET"),
+        "allowed_origins": os.getenv("ALLOWED_ORIGINS", "NOT_SET"),
         "client_id_set": bool(os.getenv("SPOTIFY_CLIENT_ID")),
         "client_secret_set": bool(os.getenv("SPOTIFY_CLIENT_SECRET")),
     }
