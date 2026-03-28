@@ -3,7 +3,7 @@ import traceback
 from fastapi import APIRouter, Request, HTTPException
 from itsdangerous import URLSafeSerializer
 import os
-from .city_generator import generate_city_payload
+from city_generator import generate_city_payload
 
 router = APIRouter()
 

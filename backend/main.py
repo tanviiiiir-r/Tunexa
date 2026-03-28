@@ -1,13 +1,13 @@
 from dotenv import load_dotenv
 import os
 
-# Load environment variables early so routers see the same values
-load_dotenv(dotenv_path="backend/.env")
+# Load environment variables
+load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .auth import router as auth_router
-from .data import router as data_router
-from .share import router as share_router, init_db
+from auth import router as auth_router
+from data import router as data_router
+from share import router as share_router, init_db
 
 app = FastAPI()
 
