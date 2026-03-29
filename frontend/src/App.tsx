@@ -168,6 +168,27 @@ function App() {
             >
               Log Out
             </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem('spotify_token');
+                localStorage.removeItem('friend_code');
+                setAuthToken(null);
+                setFriendCode(null);
+                setUser(null);
+                window.location.href = apiUrl('/login');
+              }}
+              style={{
+                background: '#6c757d',
+                color: 'white',
+                padding: '1rem 2rem',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                marginLeft: '0.5rem'
+              }}
+            >
+              Log In to Another Account
+            </button>
           </div>
         </div>
       ) : (
