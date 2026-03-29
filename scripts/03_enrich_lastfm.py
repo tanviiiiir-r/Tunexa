@@ -63,7 +63,7 @@ def main():
     try:
         result = supabase.table('artists')\
             .select('id, name, lastfm_listeners')\
-            .is_('lastfm_listeners', 0)\
+            .eq('lastfm_listeners', 0)\
             .execute()
 
         artists = result.data if hasattr(result, 'data') else []
