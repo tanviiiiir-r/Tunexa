@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client
 from auth import router as auth_router
-from data import router as data_router
+from city import router as city_router
 from share import router as share_router, init_db
 
 # Initialize Supabase client (module level - reused across requests)
@@ -51,12 +51,12 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
-app.include_router(data_router)
+app.include_router(city_router)
 app.include_router(share_router)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "message": "Spotify City API connected ✅"}
+    return {"status": "ok", "message": "Tunexa Global City API connected ✅", "data_source": "Last.fm + MusicBrainz"}
 
 @app.get("/debug/config")
 async def debug_config():
@@ -65,10 +65,7 @@ async def debug_config():
     return {
         "frontend_url_configured": frontend_url != "NOT_SET",
         "frontend_url": frontend_url if frontend_url != "NOT_SET" else None,
-        "redirect_uri": os.getenv("SPOTIFY_REDIRECT_URI", "NOT_SET"),
         "allowed_origins": os.getenv("ALLOWED_ORIGINS", "NOT_SET"),
-        "client_id_set": bool(os.getenv("SPOTIFY_CLIENT_ID")),
-        "client_secret_set": bool(os.getenv("SPOTIFY_CLIENT_SECRET")),
         "supabase_url_set": bool(os.getenv("SUPABASE_URL")),
         "supabase_key_set": bool(os.getenv("SUPABASE_SERVICE_KEY")),
         "supabase_connected": supabase is not None,
