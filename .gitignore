@@ -46,3 +46,4 @@ spotify/
 
 # Old/experimental projects
 spotify/
+.iterm2-daemon-1.socket
