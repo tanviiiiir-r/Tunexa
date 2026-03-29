@@ -72,10 +72,37 @@ const GENRE_COLORS: Record<string, string> = {
   'default': '#808080'
 };
 
+// Position cache to ensure unique positions
+const positionCache = new Map<string, { x: number; z: number }>>();
+
+// Get or generate position for an artist
+function getArtistPosition(artist: Artist, index: number): { x: number; z: number } {
+  // If artist has valid coordinates, use them
+  if (artist.city_x !== null && artist.city_z !== null && artist.city_x !== 0 && artist.city_z !== 0) {
+    return { x: artist.city_x, z: artist.city_z };
+  }
+
+  // Otherwise, generate grid position based on index
+  const gridSize = 15; // 15x15 grid
+  const spacing = 20; // 20 units between buildings
+
+  const col = index % gridSize;
+  const row = Math.floor(index / gridSize);
+
+  // Center the grid around origin
+  const x = (col - gridSize / 2) * spacing;
+  const z = (row - gridSize / 2) * spacing;
+
+  return { x, z };
+}
+
 // Transform artist to building format
-function transformArtistToBuilding(artist: Artist): Building {
+function transformArtistToBuilding(artist: Artist, index: number): Building {
   const genre = artist.genre?.toLowerCase() || 'default';
   const color = GENRE_COLORS[genre] || GENRE_COLORS['default'];
+
+  // Get position (from DB or generated)
+  const position = getArtistPosition(artist, index);
 
   // Calculate popularity based on listeners (normalized to 0-100)
   const maxListeners = 10000000; // 10M as max
@@ -97,9 +124,9 @@ function transformArtistToBuilding(artist: Artist): Building {
     artist_name: artist.name,
     artist_image_url: artist.image_url,
     position: {
-      x: artist.city_x || 0,
+      x: position.x,
       y: 0,
-      z: artist.city_z || 0
+      z: position.z
     },
     dimensions: {
       width: artist.width || 5,
@@ -495,7 +522,7 @@ export default function CityView({ onBack }: CityViewProps) {
       console.log('City data received:', data);
 
       // Transform artists to buildings
-      const buildings = data.artists.map(transformArtistToBuilding);
+      const buildings = data.artists.map((artist, index) => transformArtistToBuilding(artist, index));
 
       // Create districts from genres
       const districts: District[] = data.genres.map((genre, index) => ({
@@ -671,7 +698,7 @@ export default function CityView({ onBack }: CityViewProps) {
 
       {/* 3D Canvas */}
       <Canvas
-        camera={{ position: [100, 100, 100], fov: 60 }}
+        camera={{ position: [150, 150, 150], fov: 75 }}
         style={{ background: '#0a0a1a' }}
       >
         <CityScene cityData={cityData} onBuildingClick={handleBuildingClick} />
