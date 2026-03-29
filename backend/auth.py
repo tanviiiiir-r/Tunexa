@@ -14,6 +14,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Import supabase client from main module
+try:
+    from main import supabase
+except ImportError:
+    supabase = None
+    logger.warning("Supabase not initialized - auth features will be limited")
+
 # Serializer for signed cookies
 serializer = URLSafeSerializer(os.getenv("SESSION_SECRET", "super-secret-key"), salt="session")
 
@@ -56,6 +63,16 @@ async def login(request: Request):
     logger.info(f"Login: Stored PKCE for state={state[:8]}..., redirecting to Spotify")
     return resp
 
+# Import supabase from main module (circular import handling)
+def get_supabase():
+    from main import supabase
+    return supabase
+
+def generate_friend_code() -> str:
+    """Generate 6-char alphanumeric code (no 0/O/1/I)"""
+    charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "".join(secrets.choice(charset) for _ in range(6))
+
 @router.get("/callback")
 async def callback(request: Request, code: str, state: str = None, error: str = None):
     logger.info(f"Callback received: code present={bool(code)}, state={state}")
@@ -93,12 +110,71 @@ async def callback(request: Request, code: str, state: str = None, error: str = 
         raise HTTPException(status_code=400, detail=f"Token exchange failed: {token_resp.text}")
 
     token_data = token_resp.json()
+    access_token = token_data["access_token"]
     logger.info(f"Token exchange successful")
 
-    # Redirect to frontend with token in URL (for cross-domain)
-    # Token is encrypted so it's safe in URL
-    token_cookie = serializer.dumps({"access_token": token_data["access_token"]})
+    # Fetch user profile from Spotify
+    async with httpx.AsyncClient() as client:
+        profile_resp = await client.get(
+            "https://api.spotify.com/v1/me",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if profile_resp.status_code != 200:
+            logger.error(f"Failed to fetch profile: {profile_resp.text}")
+            raise HTTPException(status_code=400, detail="Failed to fetch user profile")
+
+        user = profile_resp.json()
+        spotify_id = user["id"]
+        display_name = user.get("display_name", "")
+        image_url = user.get("images", [{}])[0].get("url") if user.get("images") else None
+
+    # Upsert user to Supabase
+    supabase = get_supabase()
+    if supabase:
+        try:
+            # Upsert user
+            supabase.table("users").upsert({
+                "spotify_id": spotify_id,
+                "display_name": display_name,
+                "image_url": image_url
+            }, on_conflict="spotify_id").execute()
+            logger.info(f"User upserted: {spotify_id}")
+
+            # Check if friend code exists
+            existing = supabase.table("friend_codes").select("code").eq("user_id", spotify_id).execute()
+            friend_code = None
+
+            if not existing.data:
+                # Generate unique friend code (retry up to 3x)
+                for attempt in range(3):
+                    try:
+                        code = generate_friend_code()
+                        supabase.table("friend_codes").insert({
+                            "user_id": spotify_id,
+                            "code": code
+                        }).execute()
+                        friend_code = code
+                        logger.info(f"Friend code generated: {code}")
+                        break
+                    except Exception as e:
+                        if attempt == 2:
+                            logger.error(f"Failed to generate friend code after 3 attempts: {e}")
+                        continue
+            else:
+                friend_code = existing.data[0]["code"]
+        except Exception as e:
+            logger.error(f"Supabase error: {e}")
+            friend_code = None
+    else:
+        logger.warning("Supabase not configured, skipping user upsert")
+        friend_code = None
+
+    # Redirect to frontend with token and friend code
+    token_cookie = serializer.dumps({"access_token": access_token})
     redirect_url = f"{FRONTEND_URL}?token={token_cookie}"
+    if friend_code:
+        redirect_url += f"&friend_code={friend_code}"
+
     resp = RedirectResponse(url=redirect_url)
     return resp
 
