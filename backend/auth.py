@@ -14,12 +14,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Import supabase client from main module
-try:
-    from main import supabase
-except ImportError:
-    supabase = None
-    logger.warning("Supabase not initialized - auth features will be limited")
+# Supabase client - imported at runtime via get_supabase() to avoid circular imports
 
 # Serializer for signed cookies
 serializer = URLSafeSerializer(os.getenv("SESSION_SECRET", "super-secret-key"), salt="session")
