@@ -111,13 +111,16 @@ async def search_artists(
         raise HTTPException(status_code=503, detail="Database not connected")
 
     try:
+        # Fetch all and filter in Python (small dataset)
         result = supabase.table("artists")\
             .select("id, name, genre, image_url")\
-            .ilike("name", f"%{q}%")\
-            .limit(limit)\
+            .limit(1000)\
             .execute()
 
-        artists = result.data if hasattr(result, 'data') else []
+        all_artists = result.data if hasattr(result, 'data') and result.data else []
+        # Case-insensitive search
+        q_lower = q.lower()
+        artists = [a for a in all_artists if q_lower in a.get("name", "").lower()][:limit]
 
         return {
             "query": q,
