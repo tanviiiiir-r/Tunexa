@@ -5,7 +5,7 @@ Reads from Supabase artists table (populated by Session 1 scripts)
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional
 from pydantic import BaseModel
-from main import supabase
+from database import supabase
 
 router = APIRouter()
 

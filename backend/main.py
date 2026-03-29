@@ -5,33 +5,10 @@ import os
 load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from supabase import create_client
 from auth import router as auth_router
 from city import router as city_router
 from share import router as share_router, init_db
-
-# Initialize Supabase client (module level - reused across requests)
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_service_key = os.getenv("SUPABASE_SERVICE_KEY")
-
-supabase = None
-supabase_init_error = None
-
-if supabase_url and supabase_service_key:
-    try:
-        supabase = create_client(supabase_url, supabase_service_key)
-        print(f"✅ Supabase connected: {supabase_url[:30]}...")
-    except Exception as e:
-        supabase = None
-        supabase_init_error = str(e)
-        print(f"❌ Supabase connection failed: {e}")
-else:
-    missing = []
-    if not supabase_url:
-        missing.append("SUPABASE_URL")
-    if not supabase_service_key:
-        missing.append("SUPABASE_SERVICE_KEY")
-    print(f"WARNING: Missing env vars: {', '.join(missing)}. Supabase features disabled.")
+from database import supabase, supabase_init_error
 
 app = FastAPI()
 
