@@ -69,11 +69,18 @@ def generate_friend_code() -> str:
     return "".join(secrets.choice(charset) for _ in range(6))
 
 @router.get("/callback")
-async def callback(request: Request, code: str, state: str = None, error: str = None):
+async def callback(request: Request, code: str = None, state: str = None, error: str = None):
+    logger.info(f"=== OAUTH CALLBACK ===")
     logger.info(f"Callback received: code present={bool(code)}, state={state}")
+    logger.info(f"Query params: code={code is not None}, state={state is not None}, error={error}")
 
     if error:
+        logger.error(f"OAuth error from Spotify: {error}")
         raise HTTPException(status_code=400, detail=f"Spotify error: {error}")
+
+    if not code:
+        logger.error("Missing authorization code")
+        raise HTTPException(status_code=400, detail="Missing authorization code")
 
     if not state:
         logger.error("Missing state parameter")
@@ -124,9 +131,11 @@ async def callback(request: Request, code: str, state: str = None, error: str = 
         image_url = user.get("images", [{}])[0].get("url") if user.get("images") else None
 
     # Upsert user to Supabase
+    logger.info(f"Starting Supabase upsert for user: {spotify_id}")
     supabase = get_supabase()
     friend_code = None
     if supabase:
+        logger.info("Supabase client is available")
         try:
             # Try to insert, update on conflict
             try:
