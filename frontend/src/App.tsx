@@ -5,40 +5,11 @@ import { apiUrl } from './config';
 
 function App() {
   const [status, setStatus] = useState('Checking API...');
-  const [user, setUser] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCity, setShowCity] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
-  const [authToken, setAuthToken] = useState<string | null>(localStorage.getItem('spotify_token'));
-  const [friendCode, setFriendCode] = useState<string | null>(localStorage.getItem('friend_code'));
 
-  // Check for token and friend code in URL (from OAuth callback)
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const tokenParam = urlParams.get('token');
-    const friendCodeParam = urlParams.get('friend_code');
-    const errorParam = urlParams.get('error');
-
-    if (tokenParam) {
-      // Store token and clean URL
-      localStorage.setItem('spotify_token', tokenParam);
-      setAuthToken(tokenParam);
-      // Clean URL but keep friend code if present
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, '', cleanUrl);
-    }
-
-    if (friendCodeParam) {
-      localStorage.setItem('friend_code', friendCodeParam);
-      setFriendCode(friendCodeParam);
-    }
-
-    if (errorParam) {
-      setError(`OAuth error: ${errorParam}`);
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
-
+  // Check for share token in URL
   useEffect(() => {
     const path = window.location.pathname;
     const matched = path.match(/^\/share\/(.+)$/);
@@ -46,9 +17,10 @@ function App() {
       setShareToken(matched[1]);
     } else {
       setShareToken(null);
+      // Check API health
       fetch(apiUrl('/health'))
         .then((r) => r.json())
-        .then((d) => setStatus(d.message))
+        .then((d) => setStatus(d.message || 'Connected'))
         .catch(() => setStatus('API unreachable'));
     }
 
@@ -67,52 +39,6 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const login = () => {
-    setError(null);
-    window.location.href = apiUrl('/login');
-  };
-
-  const logout = () => {
-    localStorage.removeItem('spotify_token');
-    localStorage.removeItem('friend_code');
-    setAuthToken(null);
-    setFriendCode(null);
-    setUser(null);
-    setShowCity(false);
-    // Don't redirect to API logout, just clear local state
-    // The API /logout is just for clearing cookies, not needed here
-  };
-
-  const fetchProfile = async () => {
-    if (!authToken) {
-      setUser(null);
-      return;
-    }
-
-    const resp = await fetch(apiUrl('/me'), {
-      headers: {
-        'Authorization': `Bearer ${authToken}`
-      }
-    });
-
-    if (resp.ok) {
-      setUser(await resp.json());
-      setError(null);
-    } else if (resp.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem('spotify_token');
-      setAuthToken(null);
-      setUser(null);
-    }
-  };
-
-  useEffect(() => {
-    // Don't fetch profile if this is a share view
-    if (!shareToken) {
-      fetchProfile();
-    }
-  }, [shareToken, authToken]);
-
   // If viewing a shared city, render ShareView
   if (shareToken) {
     return <ShareView token={shareToken} />;
@@ -120,12 +46,13 @@ function App() {
 
   // If showing city, render the CityView component
   if (showCity) {
-    return <CityView authToken={authToken} onBack={() => setShowCity(false)} />;
+    return <CityView onBack={() => setShowCity(false)} />;
   }
 
   return (
-    <div style={{ fontFamily: 'sans-serif', padding: '2rem' }}>
-      <h1>{status}</h1>
+    <div style={{ fontFamily: 'sans-serif', padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
+      <h1>🎵 Tunexa Global City</h1>
+      <p style={{ color: '#666' }}>{status}</p>
 
       {error && (
         <div style={{ color: 'red', padding: '1rem', background: '#fee', borderRadius: '4px', marginBottom: '1rem' }}>
@@ -133,81 +60,45 @@ function App() {
         </div>
       )}
 
-      {user ? (
-        <div>
-          <h2>Welcome, {user.display_name}!</h2>
-          {user.images && user.images[0] && (
-            <img src={user.images[0].url} alt="avatar" width={80} style={{ borderRadius: '50%' }} />
-          )}
-          <div style={{ marginTop: '1rem' }}>
-            <button
-              onClick={() => setShowCity(true)}
-              style={{
-                marginRight: '0.5rem',
-                padding: '1rem 2rem',
-                fontSize: '1.2rem',
-                background: '#1DB954',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              View My City
-            </button>
-            <button
-              onClick={logout}
-              style={{
-                background: '#dc3545',
-                color: 'white',
-                padding: '1rem 2rem',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              Log Out
-            </button>
-            <button
-              onClick={() => {
-                localStorage.removeItem('spotify_token');
-                localStorage.removeItem('friend_code');
-                setAuthToken(null);
-                setFriendCode(null);
-                setUser(null);
-                window.location.href = apiUrl('/login');
-              }}
-              style={{
-                background: '#6c757d',
-                color: 'white',
-                padding: '1rem 2rem',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                marginLeft: '0.5rem'
-              }}
-            >
-              Log In to Another Account
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          <button onClick={login} style={{ padding: '1rem 2rem', fontSize: '1.2rem', cursor: 'pointer' }}>
-            Log in with Spotify
-          </button>
-          <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
-            First time? Make sure your Spotify app has the redirect URI configured:
-            <code style={{ display: 'block', marginTop: '0.5rem', padding: '0.5rem', background: '#f5f5f5' }}>
-              http://127.0.0.1:5173/callback
-            </code>
-          </p>
-        </div>
-      )}
+      <div style={{ marginTop: '2rem' }}>
+        <h2>Explore the Global Music City</h2>
+        <p style={{ color: '#666', lineHeight: '1.6' }}>
+          A 3D visualization of the world's most popular artists. Each building represents
+          an artist, with height based on Last.fm listeners and width based on track count.
+        </p>
+        <button
+          onClick={() => setShowCity(true)}
+          style={{
+            marginTop: '1rem',
+            padding: '1rem 2rem',
+            fontSize: '1.2rem',
+            background: '#1DB954',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Enter Global City
+        </button>
+      </div>
+
+      <div style={{ marginTop: '3rem', padding: '1rem', background: '#f5f5f5', borderRadius: '8px' }}>
+        <h3 style={{ marginTop: 0 }}>Current Data</h3>
+        <ul style={{ color: '#666', lineHeight: '1.8' }}>
+          <li>🎤 51 artists from Last.fm</li>
+          <li>🏢 6 genre districts</li>
+          <li>📊 Listener & track count data</li>
+          <li>🎨 Color-coded by genre</li>
+        </ul>
+        <p style={{ fontSize: '0.85rem', color: '#999', marginTop: '1rem' }}>
+          Session 3 of Global City implementation.
+          <br />
+          No login required - public city data.
+        </p>
+      </div>
     </div>
   );
 }
 
 export default App;
-// Deploy check: Sun Mar 29 15:14:07 EEST 2026
-// Redeploy: Sun Mar 29 15:30:51 EEST 2026

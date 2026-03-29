@@ -1,46 +1,56 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, Text, Box } from '@react-three/drei';
+import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { apiUrl } from '../config';
 
-interface Floor {
-  floor_number: number;
-  track_id: string;
-  track_name: string;
-  album_cover: string;
-  duration_ms: number;
-  preview_url: string | null;
-  is_lit: boolean;
+// API Response Types
+interface Artist {
+  id: string;
+  name: string;
+  genre: string;
+  height: number;
+  width: number;
+  city_x: number;
+  city_z: number;
+  image_url: string | null;
+  lastfm_listeners: number;
+  track_count: number;
+  sub_genres?: string[];
 }
 
+interface CityResponse {
+  artists: Artist[];
+  total: number;
+  page: number;
+  limit: number;
+  genres: string[];
+}
+
+// Building Types for 3D Rendering
 interface Building {
   id: string;
   artist_id: string;
   artist_name: string;
-  artist_image_url: string;
-  position?: { x: number; y: number; z: number };
-  dimensions?: { width: number; height: number; depth: number };
-  style?: {
-    color?: string;
-    brightness?: number;
-    glow_intensity?: number;
-    animation?: boolean;
+  artist_image_url: string | null;
+  position: { x: number; y: number; z: number };
+  dimensions: { width: number; height: number; depth: number };
+  style: {
+    color: string;
+    brightness: number;
+    glow_intensity: number;
+    animation: boolean;
   };
-  metadata?: {
-    genre?: string;
-    language?: string;
-    popularity?: number;
-    followers?: number;
-    listening_minutes?: number;
-    song_count?: number;
-    last_played?: string;
+  metadata: {
+    genre: string;
+    popularity: number;
+    listeners: number;
+    track_count: number;
   };
-  windows?: Array<{
+  windows: Array<{
     floor: number;
     is_lit: boolean;
   }>;
-  floors?: Floor[];
 }
 
 interface District {
@@ -49,29 +59,82 @@ interface District {
   color: string;
 }
 
-interface CityData {
-  buildings?: Building[];
-  districts?: District[];
-  stats?: {
-    total_artists?: number;
-    total_buildings?: number;
+// Genre to color mapping
+const GENRE_COLORS: Record<string, string> = {
+  'pop': '#FF6B6B',
+  'rock': '#4ECDC4',
+  'hip-hop': '#FFE66D',
+  'hip hop': '#FFE66D',
+  'electronic': '#95E1D3',
+  'r&b': '#F38181',
+  'indie': '#AA96DA',
+  'alternative rock': '#FCBAD3',
+  'default': '#808080'
+};
+
+// Transform artist to building format
+function transformArtistToBuilding(artist: Artist): Building {
+  const genre = artist.genre?.toLowerCase() || 'default';
+  const color = GENRE_COLORS[genre] || GENRE_COLORS['default'];
+
+  // Calculate popularity based on listeners (normalized to 0-100)
+  const maxListeners = 10000000; // 10M as max
+  const popularity = Math.min(100, Math.round((artist.lastfm_listeners / maxListeners) * 100));
+
+  // Generate windows based on track count
+  const floors = Math.max(1, Math.floor(artist.track_count / 20));
+  const windows: Array<{floor: number; is_lit: boolean}> = [];
+  for (let i = 0; i < floors; i++) {
+    windows.push({
+      floor: i,
+      is_lit: Math.random() > 0.3 // 70% lit windows
+    });
+  }
+
+  return {
+    id: artist.id,
+    artist_id: artist.id,
+    artist_name: artist.name,
+    artist_image_url: artist.image_url,
+    position: {
+      x: artist.city_x || 0,
+      y: 0,
+      z: artist.city_z || 0
+    },
+    dimensions: {
+      width: artist.width || 5,
+      height: artist.height || 10,
+      depth: artist.width || 5
+    },
+    style: {
+      color: color,
+      brightness: 0.5 + (popularity / 200),
+      glow_intensity: 0.3 + (popularity / 200),
+      animation: popularity > 70
+    },
+    metadata: {
+      genre: artist.genre || 'Unknown',
+      popularity: popularity,
+      listeners: artist.lastfm_listeners,
+      track_count: artist.track_count
+    },
+    windows
   };
 }
 
 // Building Component with Click Handler and Pulse Animation
 function BuildingMesh({ building, onClick }: { building: Building; onClick: (building: Building) => void }) {
-  const position = building.position || { x: 0, y: 0, z: 0 };
-  const dimensions = building.dimensions || { width: 10, height: 30, depth: 10 };
-  const style = building.style || { color: '#808080', brightness: 0.5, glow_intensity: 0.3, animation: false };
+  const position = building.position;
+  const dimensions = building.dimensions;
+  const style = building.style;
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
 
-  // Pulse animation for recently played buildings
+  // Pulse animation for popular buildings
   useFrame((state) => {
     if (materialRef.current && style.animation) {
-      // Create a pulsing effect using sine wave
-      const pulse = Math.sin(state.clock.elapsedTime * 3) * 0.3 + 0.7; // Oscillates between 0.4 and 1.0
-      const baseIntensity = (style.glow_intensity || 0.5) * 0.5;
+      const pulse = Math.sin(state.clock.elapsedTime * 3) * 0.3 + 0.7;
+      const baseIntensity = style.glow_intensity * 0.5;
       materialRef.current.emissiveIntensity = baseIntensity * pulse;
     }
   });
@@ -92,7 +155,7 @@ function BuildingMesh({ building, onClick }: { building: Building; onClick: (bui
 
         const isLit = building.windows && building.windows[floor] ? building.windows[floor].is_lit : false;
         const windowColor = isLit ? '#FFD700' : '#333333';
-        const emissive = isLit ? (style.glow_intensity || 0.5) : 0;
+        const emissive = isLit ? style.glow_intensity : 0;
 
         windowMeshes.push(
           <mesh key={`${building.id}-window-${floor}-${w}`} position={[wx, wy, wz]}>
@@ -114,12 +177,11 @@ function BuildingMesh({ building, onClick }: { building: Building; onClick: (bui
     onClick(building);
   };
 
-  // Hover effect
   const [hovered, setHovered] = useState(false);
 
   return (
     <group
-      position={[position.x, (position.y || 0) + dimensions.height / 2, position.z]}
+      position={[position.x, position.y + dimensions.height / 2, position.z]}
       onClick={handleClick}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
@@ -129,9 +191,9 @@ function BuildingMesh({ building, onClick }: { building: Building; onClick: (bui
         <boxGeometry args={[dimensions.width, dimensions.height, dimensions.depth]} />
         <meshStandardMaterial
           ref={materialRef}
-          color={style.color || '#808080'}
-          emissive={style.color || '#808080'}
-          emissiveIntensity={hovered ? 0.6 : (style.animation ? 0 : 0.1 + (style.brightness || 0) * 0.2)}
+          color={style.color}
+          emissive={style.color}
+          emissiveIntensity={hovered ? 0.6 : (style.animation ? 0 : 0.1 + style.brightness * 0.2)}
         />
       </mesh>
 
@@ -146,16 +208,16 @@ function BuildingMesh({ building, onClick }: { building: Building; onClick: (bui
         anchorX="center"
         anchorY="bottom"
       >
-        {building.artist_name || 'Unknown'}
+        {building.artist_name}
       </Text>
     </group>
   );
 }
 
 // Ground/Platform
-function Ground({ onClick }: { onClick?: () => void }) {
+function Ground() {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} onClick={onClick}>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
       <planeGeometry args={[500, 500]} />
       <meshStandardMaterial color="#1a1a2e" />
     </mesh>
@@ -179,14 +241,14 @@ function DistrictMarkers({ districts }: { districts: District[] }) {
             <Text
               position={[0, 5, 0]}
               fontSize={4}
-              color={district.color || '#ffffff'}
+              color={district.color}
               anchorX="center"
             >
-              {district.name || district.genre || 'Unknown'}
+              {district.name}
             </Text>
             <mesh position={[0, 0, 0]}>
               <cylinderGeometry args={[20, 20, 0.5, 32]} />
-              <meshStandardMaterial color={district.color || '#ffffff'} transparent opacity={0.2} />
+              <meshStandardMaterial color={district.color} transparent opacity={0.2} />
             </mesh>
           </group>
         );
@@ -196,9 +258,11 @@ function DistrictMarkers({ districts }: { districts: District[] }) {
 }
 
 // Main City Scene
-function CityScene({ cityData, onBuildingClick }: { cityData: CityData; onBuildingClick: (building: Building) => void }) {
-  const buildings = cityData.buildings || [];
-  const districts = cityData.districts || [];
+function CityScene({ cityData, onBuildingClick }: {
+  cityData: { buildings: Building[]; districts: District[] };
+  onBuildingClick: (building: Building) => void;
+}) {
+  const { buildings, districts } = cityData;
 
   return (
     <>
@@ -206,12 +270,16 @@ function CityScene({ cityData, onBuildingClick }: { cityData: CityData; onBuildi
       <directionalLight position={[50, 50, 50]} intensity={0.8} castShadow />
       <pointLight position={[0, 50, 0]} intensity={0.5} color="#ffffff" />
 
-      <Ground onClick={() => {}} />
+      <Ground />
 
       {districts.length > 0 && <DistrictMarkers districts={districts} />}
 
       {buildings.map((building) => (
-        <BuildingMesh key={building.id || Math.random().toString()} building={building} onClick={onBuildingClick} />
+        <BuildingMesh
+          key={building.id}
+          building={building}
+          onClick={onBuildingClick}
+        />
       ))}
 
       <OrbitControls
@@ -232,72 +300,9 @@ interface ArtistPanelProps {
 }
 
 function ArtistPanel({ building, onClose }: ArtistPanelProps) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentPreview, setCurrentPreview] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Cleanup audio when panel closes
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    // Reset audio state when building changes
-    setIsPlaying(false);
-    setCurrentPreview(null);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-  }, [building]);
-
   if (!building) return null;
 
-  const metadata = building.metadata || {};
-  const floors = building.floors || [];
-  const hasPreview = floors.some(f => f.preview_url);
-
-  const handlePlayPreview = (previewUrl: string | null) => {
-    if (!previewUrl) return;
-
-    if (audioRef.current && currentPreview === previewUrl) {
-      // Toggle play/pause for same track
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        audioRef.current.play();
-        setIsPlaying(true);
-      }
-    } else {
-      // New track
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      audioRef.current = new Audio(previewUrl);
-      audioRef.current.onended = () => setIsPlaying(false);
-      audioRef.current.play();
-      setCurrentPreview(previewUrl);
-      setIsPlaying(true);
-    }
-  };
-
-  const stopAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    setIsPlaying(false);
-    setCurrentPreview(null);
-  };
-
-  // Find first track with preview
-  const firstPreviewTrack = floors.find(f => f.preview_url);
+  const metadata = building.metadata;
 
   return (
     <>
@@ -312,10 +317,7 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
           background: 'rgba(0,0,0,0.5)',
           zIndex: 100,
         }}
-        onClick={() => {
-          stopAudio();
-          onClose();
-        }}
+        onClick={onClose}
       />
       {/* Panel */}
       <div
@@ -338,10 +340,7 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
       >
         {/* Close button */}
         <button
-          onClick={() => {
-            stopAudio();
-            onClose();
-          }}
+          onClick={onClose}
           style={{
             position: 'absolute',
             top: '1rem',
@@ -369,7 +368,7 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
                 height: '200px',
                 borderRadius: '50%',
                 objectFit: 'cover',
-                border: `4px solid ${building.style?.color || '#1DB954'}`,
+                border: `4px solid ${building.style.color}`,
                 boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
               }}
             />
@@ -393,7 +392,7 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
             marginBottom: '1.5rem',
           }}>
             <span style={{
-              background: building.style?.color || '#1DB954',
+              background: building.style.color,
               color: 'white',
               padding: '0.4rem 1rem',
               borderRadius: '20px',
@@ -420,7 +419,7 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
             textAlign: 'center',
           }}>
             <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1DB954' }}>
-              {metadata.popularity || 0}
+              {metadata.popularity}
             </div>
             <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem' }}>
               Popularity
@@ -433,15 +432,15 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
             textAlign: 'center',
           }}>
             <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1DB954' }}>
-              {metadata.followers ? (metadata.followers / 1000000).toFixed(1) + 'M' : 'N/A'}
+              {(metadata.listeners / 1000000).toFixed(1)}M
             </div>
             <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem' }}>
-              Followers
+              Listeners
             </div>
           </div>
         </div>
 
-        {/* Listening Stats */}
+        {/* Additional Stats */}
         <div style={{
           background: 'rgba(255,255,255,0.05)',
           padding: '1rem',
@@ -449,144 +448,23 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
           marginBottom: '1.5rem',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span style={{ color: '#888' }}>Listening Time</span>
-            <span style={{ fontWeight: 600 }}>{Math.round(metadata.listening_minutes || 0)} min</span>
+            <span style={{ color: '#888' }}>Tracks</span>
+            <span style={{ fontWeight: 600 }}>{metadata.track_count}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#888' }}>Songs</span>
-            <span style={{ fontWeight: 600 }}>{metadata.song_count || 0}</span>
+            <span style={{ color: '#888' }}>Building Height</span>
+            <span style={{ fontWeight: 600 }}>{building.dimensions.height.toFixed(1)}m</span>
           </div>
         </div>
 
-        {/* Preview Button */}
-        {firstPreviewTrack ? (
-          <button
-            onClick={() => handlePlayPreview(firstPreviewTrack.preview_url)}
-            style={{
-              width: '100%',
-              padding: '1rem',
-              background: isPlaying ? '#e74c3c' : '#1DB954',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              marginBottom: '1.5rem',
-              transition: 'background 0.2s',
-            }}
-          >
-            {isPlaying ? '⏸ Stop Preview' : '▶ Play Preview'}
-          </button>
-        ) : (
-          <div style={{
-            width: '100%',
-            padding: '1rem',
-            background: 'rgba(255,255,255,0.1)',
-            color: '#888',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '1rem',
-            textAlign: 'center',
-            marginBottom: '1.5rem',
-          }}>
-            No preview available
-          </div>
-        )}
-
-        {/* Tracks List */}
-        {floors.length > 0 && (
-          <div>
-            <h3 style={{
-              margin: '0 0 1rem 0',
-              fontSize: '1.1rem',
-              color: '#fff',
-            }}>
-              Top Tracks
-            </h3>
-            {floors.slice(0, 5).map((floor, index) => (
-              <div
-                key={floor.track_id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '0.75rem',
-                  background: currentPreview === floor.preview_url && isPlaying
-                    ? 'rgba(29, 185, 84, 0.2)'
-                    : 'rgba(255,255,255,0.05)',
-                  borderRadius: '8px',
-                  marginBottom: '0.5rem',
-                  cursor: floor.preview_url ? 'pointer' : 'default',
-                  border: currentPreview === floor.preview_url && isPlaying
-                    ? '1px solid #1DB954'
-                    : '1px solid transparent',
-                }}
-                onClick={() => floor.preview_url && handlePlayPreview(floor.preview_url)}
-              >
-                {floor.album_cover ? (
-                  <img
-                    src={floor.album_cover}
-                    alt={floor.track_name}
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '4px',
-                      objectFit: 'cover',
-                    }}
-                  />
-                ) : (
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '4px',
-                    background: '#333',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '0.75rem',
-                    color: '#666',
-                  }}>
-                    ♪
-                  </div>
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: '0.9rem',
-                    fontWeight: 500,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}>
-                    {floor.track_name}
-                  </div>
-                  <div style={{
-                    fontSize: '0.75rem',
-                    color: '#888',
-                  }}>
-                    {Math.round(floor.duration_ms / 60000)}:{String(Math.round((floor.duration_ms % 60000) / 1000)).padStart(2, '0')}
-                  </div>
-                </div>
-                {floor.preview_url && (
-                  <div style={{
-                    width: '24px',
-                    height: '24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: currentPreview === floor.preview_url && isPlaying ? '#1DB954' : '#888',
-                  }}>
-                    {currentPreview === floor.preview_url && isPlaying ? '⏸' : '▶'}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        <div style={{
+          marginTop: '1rem',
+          fontSize: '0.85rem',
+          color: '#888',
+          textAlign: 'center',
+        }}>
+          Data from Last.fm + MusicBrainz
+        </div>
       </div>
     </>
   );
@@ -594,55 +472,39 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
 
 // Main City View Component
 interface CityViewProps {
-  authToken?: string | null;
   onBack?: () => void;
 }
 
-export default function CityView({ authToken, onBack }: CityViewProps) {
-  const [cityData, setCityData] = useState<CityData | null>(null);
+export default function CityView({ onBack }: CityViewProps) {
+  const [cityData, setCityData] = useState<{ buildings: Building[]; districts: District[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const [sharing, setSharing] = useState(false);
 
   const fetchCity = async () => {
-    if (!authToken) {
-      setError('Not authenticated');
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch(apiUrl('/city_payload'), {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
+      // Fetch from new Global City endpoint (no auth required)
+      const resp = await fetch(apiUrl('/city?limit=500'));
       if (!resp.ok) {
         const errData = await resp.json().catch(() => ({}));
         throw new Error(errData.detail || `Failed to fetch: ${resp.status}`);
       }
-      const data = await resp.json();
+      const data: CityResponse = await resp.json();
       console.log('City data received:', data);
 
-      // Validate data structure
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid response format');
-      }
+      // Transform artists to buildings
+      const buildings = data.artists.map(transformArtistToBuilding);
 
-      // Ensure we have the expected structure
-      const validatedData: CityData = {
-        buildings: Array.isArray(data.buildings) ? data.buildings : [],
-        districts: Array.isArray(data.districts) ? data.districts : [],
-        stats: data.stats || {}
-      };
+      // Create districts from genres
+      const districts: District[] = data.genres.map((genre, index) => ({
+        name: genre.charAt(0).toUpperCase() + genre.slice(1),
+        genre: genre,
+        color: GENRE_COLORS[genre.toLowerCase()] || GENRE_COLORS['default']
+      }));
 
-      console.log('Validated data:', validatedData);
-      console.log(`Rendering ${validatedData.buildings?.length || 0} buildings`);
-
-      setCityData(validatedData);
+      setCityData({ buildings, districts });
     } catch (err) {
       console.error('Error fetching city:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -660,53 +522,48 @@ export default function CityView({ authToken, onBack }: CityViewProps) {
     setSelectedBuilding(null);
   };
 
-  const handleShare = async () => {
-    if (!cityData || !authToken) return;
-    setSharing(true);
-    try {
-      const resp = await fetch(apiUrl('/api/share'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify(cityData)
-      });
-      if (!resp.ok) throw new Error('Failed to create share link');
-      const data = await resp.json();
-      const fullUrl = `${window.location.origin}/share/${data.token}`;
-      setShareUrl(fullUrl);
-      await navigator.clipboard.writeText(fullUrl);
-    } catch (err) {
-      console.error('Share failed:', err);
-      alert('Failed to create share link');
-    } finally {
-      setSharing(false);
-    }
-  };
+  useEffect(() => {
+    fetchCity();
+  }, []);
 
   if (loading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <h2>Building your city...</h2>
+      <div style={{
+        width: '100vw',
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0a0a1a',
+        color: 'white',
+        fontFamily: 'sans-serif'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <h2>Building Global City...</h2>
+          <p style={{ color: '#888' }}>Loading {loading ? '...' : ''} artists</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ padding: '2rem' }}>
-        <div style={{ color: 'red', marginBottom: '1rem' }}>Error: {error}</div>
+      <div style={{ padding: '2rem', background: '#0a0a1a', color: 'white', minHeight: '100vh' }}>
+        <div style={{ color: '#ff6b6b', marginBottom: '1rem' }}>Error: {error}</div>
         <button onClick={fetchCity}>Try Again</button>
+        {onBack && (
+          <button onClick={onBack} style={{ marginLeft: '1rem' }}>
+            ← Back
+          </button>
+        )}
       </div>
     );
   }
 
   if (!cityData) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <h2>Your Spotify City</h2>
-        <p>Generate a 3D city from your listening data</p>
+      <div style={{ padding: '2rem', textAlign: 'center', background: '#0a0a1a', color: 'white', minHeight: '100vh' }}>
+        <h2>Global Music City</h2>
         <button
           onClick={fetchCity}
           style={{
@@ -720,7 +577,7 @@ export default function CityView({ authToken, onBack }: CityViewProps) {
             marginTop: '1rem'
           }}
         >
-          Generate My City
+          Load City
         </button>
       </div>
     );
@@ -729,9 +586,9 @@ export default function CityView({ authToken, onBack }: CityViewProps) {
   // Show message if no buildings
   if (!cityData.buildings || cityData.buildings.length === 0) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <div style={{ padding: '2rem', textAlign: 'center', background: '#0a0a1a', color: 'white', minHeight: '100vh' }}>
         <h2>No buildings found</h2>
-        <p>Your city data doesn't have any buildings. Try logging in again.</p>
+        <p>No artist data available. Please check the API.</p>
         <button onClick={() => setCityData(null)} style={{ marginTop: '1rem' }}>
           Back
         </button>
@@ -755,7 +612,7 @@ export default function CityView({ authToken, onBack }: CityViewProps) {
           fontFamily: 'sans-serif'
         }}
       >
-        <h3 style={{ margin: '0 0 0.5rem 0' }}>Spotify City</h3>
+        <h3 style={{ margin: '0 0 0.5rem 0' }}>🌍 Global City</h3>
         <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
           Buildings: {cityData.buildings?.length || 0}
         </p>
@@ -772,7 +629,7 @@ export default function CityView({ authToken, onBack }: CityViewProps) {
             marginRight: '0.5rem'
           }}
         >
-          Regenerate
+          Reload
         </button>
         {onBack && (
           <button
@@ -786,40 +643,10 @@ export default function CityView({ authToken, onBack }: CityViewProps) {
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              marginRight: '0.5rem'
             }}
           >
-            ← Back to Menu
+            ← Back
           </button>
-        )}
-        <button
-          onClick={handleShare}
-          disabled={sharing}
-          style={{
-            marginTop: '0.5rem',
-            padding: '0.5rem 1rem',
-            fontSize: '0.8rem',
-            cursor: sharing ? 'default' : 'pointer',
-            background: sharing ? '#1DB954' : '#333',
-            color: 'white',
-            border: '1px solid #1DB954',
-            borderRadius: '4px'
-          }}
-        >
-          {sharing ? '✓ Copied!' : '🔗 Share'}
-        </button>
-        {shareUrl && (
-          <div style={{
-            marginTop: '0.5rem',
-            fontSize: '0.75rem',
-            wordBreak: 'break-all',
-            color: '#1DB954',
-            padding: '0.5rem',
-            background: 'rgba(29, 185, 84, 0.1)',
-            borderRadius: '4px'
-          }}>
-            {shareUrl}
-          </div>
         )}
       </div>
 
@@ -839,7 +666,7 @@ export default function CityView({ authToken, onBack }: CityViewProps) {
           maxWidth: '200px',
         }}
       >
-        Click on any building to see artist info and play previews
+        Click on any building to see artist info
       </div>
 
       {/* 3D Canvas */}

@@ -324,7 +324,7 @@ export default function ShareView({ token }: ShareViewProps) {
           fontFamily: 'sans-serif'
         }}
       >
-        <h3 style={{ margin: '0 0 0.5rem 0' }}>🎵 Spotify City</h3>
+        <h3 style={{ margin: '0 0 0.5rem 0' }}>🌍 Tunexa Global City</h3>
         <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
           Buildings: {cityData.buildings?.length || 0}
         </p>
