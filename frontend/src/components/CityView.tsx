@@ -73,10 +73,10 @@ const GENRE_COLORS: Record<string, string> = {
 };
 
 // Position cache to ensure unique positions
-const positionCache = new Map<string, { x: number; z: number }>>();
+type Position = { x: number; z: number };const positionCache = new Map<string, Position>();
 
 // Get or generate position for an artist
-function getArtistPosition(artist: Artist, index: number): { x: number; z: number } {
+function getArtistPosition(artist: Artist, index: number): { x: number, z: number } {
   // If artist has valid coordinates, use them
   if (artist.city_x !== null && artist.city_z !== null && artist.city_x !== 0 && artist.city_z !== 0) {
     return { x: artist.city_x, z: artist.city_z };
