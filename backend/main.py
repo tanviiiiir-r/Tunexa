@@ -14,11 +14,24 @@ from share import router as share_router, init_db
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_service_key = os.getenv("SUPABASE_SERVICE_KEY")
 
+supabase = None
+supabase_init_error = None
+
 if supabase_url and supabase_service_key:
-    supabase = create_client(supabase_url, supabase_service_key)
+    try:
+        supabase = create_client(supabase_url, supabase_service_key)
+        print(f"✅ Supabase connected: {supabase_url[:30]}...")
+    except Exception as e:
+        supabase = None
+        supabase_init_error = str(e)
+        print(f"❌ Supabase connection failed: {e}")
 else:
-    supabase = None
-    print("WARNING: SUPABASE_URL or SUPABASE_SERVICE_KEY not set. Supabase features disabled.")
+    missing = []
+    if not supabase_url:
+        missing.append("SUPABASE_URL")
+    if not supabase_service_key:
+        missing.append("SUPABASE_SERVICE_KEY")
+    print(f"WARNING: Missing env vars: {', '.join(missing)}. Supabase features disabled.")
 
 app = FastAPI()
 
@@ -56,5 +69,8 @@ async def debug_config():
         "allowed_origins": os.getenv("ALLOWED_ORIGINS", "NOT_SET"),
         "client_id_set": bool(os.getenv("SPOTIFY_CLIENT_ID")),
         "client_secret_set": bool(os.getenv("SPOTIFY_CLIENT_SECRET")),
+        "supabase_url_set": bool(os.getenv("SUPABASE_URL")),
+        "supabase_key_set": bool(os.getenv("SUPABASE_SERVICE_KEY")),
         "supabase_connected": supabase is not None,
+        "supabase_error": supabase_init_error,
     }
