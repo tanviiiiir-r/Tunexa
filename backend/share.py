@@ -11,9 +11,14 @@ router = APIRouter()
 
 DB_PATH = os.getenv("DB_PATH", "spotify_city.db")
 
+# Import supabase from main
+def get_supabase():
+    from main import supabase
+    return supabase
+
 
 async def init_db():
-    """Initialize SQLite database with city_snapshots table"""
+    """Initialize SQLite database with city_snapshots table (legacy - keeping for compatibility)"""
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS city_snapshots (
@@ -27,7 +32,7 @@ async def init_db():
 
 
 async def get_db():
-    """Get database connection"""
+    """Get database connection (legacy)"""
     db = await aiosqlite.connect(DB_PATH)
     db.row_factory = aiosqlite.Row
     return db
@@ -48,12 +53,33 @@ async def create_share(city_data: Dict[str, Any]) -> Dict[str, str]:
     token = str(uuid.uuid4())[:8]  # Short 8-char token for easy sharing
     expires_at = datetime.utcnow() + timedelta(days=30)
 
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "INSERT INTO city_snapshots (token, city_data, expires_at) VALUES (?, ?, ?)",
-            (token, json.dumps(city_data), expires_at.isoformat())
-        )
-        await db.commit()
+    supabase = get_supabase()
+    if supabase:
+        try:
+            # Insert into Supabase
+            supabase.table("shared_cities").insert({
+                "share_id": token,
+                "city_data": city_data,
+                "time_range": city_data.get("time_range", "medium"),
+                "created_at": datetime.utcnow().isoformat()
+            }).execute()
+        except Exception as e:
+            print(f"Supabase error, falling back to SQLite: {e}")
+            # Fallback to SQLite
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "INSERT INTO city_snapshots (token, city_data, expires_at) VALUES (?, ?, ?)",
+                    (token, json.dumps(city_data), expires_at.isoformat())
+                )
+                await db.commit()
+    else:
+        # Fallback to SQLite if Supabase not configured
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                "INSERT INTO city_snapshots (token, city_data, expires_at) VALUES (?, ?, ?)",
+                (token, json.dumps(city_data), expires_at.isoformat())
+            )
+            await db.commit()
 
     return {
         "token": token,
@@ -68,6 +94,27 @@ async def get_shared_city(token: str) -> Dict[str, Any]:
     Retrieve a city snapshot by token.
     Public endpoint - no authentication required.
     """
+    supabase = get_supabase()
+
+    if supabase:
+        try:
+            # Query Supabase
+            result = supabase.table("shared_cities")\
+                .select("*")\
+                .eq("share_id", token)\
+                .execute()
+
+            if result.data and len(result.data) > 0:
+                row = result.data[0]
+                city_data = row["city_data"]
+                return {
+                    "city_data": city_data,
+                    "read_only": True
+                }
+        except Exception as e:
+            print(f"Supabase error, trying SQLite: {e}")
+
+    # Fallback to SQLite
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
@@ -96,6 +143,21 @@ async def check_share_exists(token: str) -> Dict[str, bool]:
     """
     Check if a share token exists and is valid.
     """
+    supabase = get_supabase()
+
+    if supabase:
+        try:
+            result = supabase.table("shared_cities")\
+                .select("created_at")\
+                .eq("share_id", token)\
+                .execute()
+
+            if result.data and len(result.data) > 0:
+                return {"exists": True}
+        except Exception as e:
+            print(f"Supabase error, trying SQLite: {e}")
+
+    # Fallback to SQLite
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
