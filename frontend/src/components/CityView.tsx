@@ -595,9 +595,10 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
 // Main City View Component
 interface CityViewProps {
   authToken?: string | null;
+  onBack?: () => void;
 }
 
-export default function CityView({ authToken }: CityViewProps) {
+export default function CityView({ authToken, onBack }: CityViewProps) {
   const [cityData, setCityData] = useState<CityData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -773,6 +774,24 @@ export default function CityView({ authToken }: CityViewProps) {
         >
           Regenerate
         </button>
+        {onBack && (
+          <button
+            onClick={onBack}
+            style={{
+              marginTop: '0.5rem',
+              padding: '0.5rem 1rem',
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              background: '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              marginRight: '0.5rem'
+            }}
+          >
+            ← Back to Menu
+          </button>
+        )}
         <button
           onClick={handleShare}
           disabled={sharing}

@@ -74,9 +74,13 @@ function App() {
 
   const logout = () => {
     localStorage.removeItem('spotify_token');
+    localStorage.removeItem('friend_code');
     setAuthToken(null);
+    setFriendCode(null);
     setUser(null);
-    window.location.href = apiUrl('/logout');
+    setShowCity(false);
+    // Don't redirect to API logout, just clear local state
+    // The API /logout is just for clearing cookies, not needed here
   };
 
   const fetchProfile = async () => {
@@ -116,7 +120,7 @@ function App() {
 
   // If showing city, render the CityView component
   if (showCity) {
-    return <CityView authToken={authToken} />;
+    return <CityView authToken={authToken} onBack={() => setShowCity(false)} />;
   }
 
   return (
