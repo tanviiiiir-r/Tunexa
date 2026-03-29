@@ -5,9 +5,20 @@ import os
 load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from supabase import create_client
 from auth import router as auth_router
 from data import router as data_router
 from share import router as share_router, init_db
+
+# Initialize Supabase client (module level - reused across requests)
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_service_key = os.getenv("SUPABASE_SERVICE_KEY")
+
+if supabase_url and supabase_service_key:
+    supabase = create_client(supabase_url, supabase_service_key)
+else:
+    supabase = None
+    print("WARNING: SUPABASE_URL or SUPABASE_SERVICE_KEY not set. Supabase features disabled.")
 
 app = FastAPI()
 
@@ -45,5 +56,5 @@ async def debug_config():
         "allowed_origins": os.getenv("ALLOWED_ORIGINS", "NOT_SET"),
         "client_id_set": bool(os.getenv("SPOTIFY_CLIENT_ID")),
         "client_secret_set": bool(os.getenv("SPOTIFY_CLIENT_SECRET")),
+        "supabase_connected": supabase is not None,
     }
-
