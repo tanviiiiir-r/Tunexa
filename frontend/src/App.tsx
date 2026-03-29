@@ -10,18 +10,27 @@ function App() {
   const [showCity, setShowCity] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(localStorage.getItem('spotify_token'));
+  const [friendCode, setFriendCode] = useState<string | null>(localStorage.getItem('friend_code'));
 
-  // Check for token in URL (from OAuth callback) and store it
+  // Check for token and friend code in URL (from OAuth callback)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tokenParam = urlParams.get('token');
+    const friendCodeParam = urlParams.get('friend_code');
     const errorParam = urlParams.get('error');
 
     if (tokenParam) {
       // Store token and clean URL
       localStorage.setItem('spotify_token', tokenParam);
       setAuthToken(tokenParam);
-      window.history.replaceState({}, '', window.location.pathname);
+      // Clean URL but keep friend code if present
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    }
+
+    if (friendCodeParam) {
+      localStorage.setItem('friend_code', friendCodeParam);
+      setFriendCode(friendCodeParam);
     }
 
     if (errorParam) {
