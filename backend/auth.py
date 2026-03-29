@@ -125,19 +125,29 @@ async def callback(request: Request, code: str, state: str = None, error: str = 
 
     # Upsert user to Supabase
     supabase = get_supabase()
+    friend_code = None
     if supabase:
         try:
-            # Upsert user
-            supabase.table("users").upsert({
-                "spotify_id": spotify_id,
-                "display_name": display_name,
-                "image_url": image_url
-            }, on_conflict="spotify_id").execute()
-            logger.info(f"User upserted: {spotify_id}")
+            # Try to insert, update on conflict
+            try:
+                result = supabase.table("users").insert({
+                    "spotify_id": spotify_id,
+                    "display_name": display_name,
+                    "image_url": image_url
+                }).execute()
+                logger.info(f"User inserted: {spotify_id}")
+            except Exception as insert_err:
+                # User exists, update instead
+                logger.info(f"Insert failed (user exists?), trying update: {insert_err}")
+                result = supabase.table("users").update({
+                    "display_name": display_name,
+                    "image_url": image_url
+                }).eq("spotify_id", spotify_id).execute()
+                logger.info(f"User updated: {spotify_id}")
 
             # Check if friend code exists
             existing = supabase.table("friend_codes").select("code").eq("user_id", spotify_id).execute()
-            friend_code = None
+            logger.info(f"Friend code check: {existing.data}")
 
             if not existing.data:
                 # Generate unique friend code (retry up to 3x)
@@ -152,17 +162,18 @@ async def callback(request: Request, code: str, state: str = None, error: str = 
                         logger.info(f"Friend code generated: {code}")
                         break
                     except Exception as e:
+                        logger.warning(f"Friend code attempt {attempt+1} failed: {e}")
                         if attempt == 2:
                             logger.error(f"Failed to generate friend code after 3 attempts: {e}")
                         continue
             else:
                 friend_code = existing.data[0]["code"]
+                logger.info(f"Existing friend code: {friend_code}")
         except Exception as e:
-            logger.error(f"Supabase error: {e}")
+            logger.error(f"Supabase error during user upsert: {e}", exc_info=True)
             friend_code = None
     else:
         logger.warning("Supabase not configured, skipping user upsert")
-        friend_code = None
 
     # Redirect to frontend with token and friend code
     token_cookie = serializer.dumps({"access_token": access_token})
