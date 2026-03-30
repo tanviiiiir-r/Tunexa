@@ -34,9 +34,9 @@ function CameraController() {
   const { camera } = useThree();
 
   useEffect(() => {
-    // Position camera further out to see the whole city spread
-    camera.position.set(400, 300, 400);
-    camera.lookAt(0, 50, 0);
+    // Position camera further out for wider city view
+    camera.position.set(600, 400, 600);
+    camera.lookAt(0, 30, 0);
   }, [camera]);
 
   return null;
@@ -165,10 +165,10 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
   const maxListeners = 10000000; // 10M as max
   const popularity = Math.min(100, Math.round((artist.lastfm_listeners / maxListeners) * 100));
 
-  // STEP 1: Building Dimensions - Git City style
+  // STEP 1: Building Dimensions - Git City style (REDUCED for better scale)
   // Constants
-  const MIN_BUILDING_HEIGHT = 35;
-  const MAX_BUILDING_HEIGHT = 300;
+  const MIN_BUILDING_HEIGHT = 15;   // Smaller minimum
+  const MAX_BUILDING_HEIGHT = 80;   // Much smaller max - buildings appear too big
   const HEIGHT_RANGE = MAX_BUILDING_HEIGHT - MIN_BUILDING_HEIGHT;
 
   // Height: Power curve for better distribution, multi-factor (listeners + tracks)
@@ -1296,12 +1296,12 @@ export default function CityView({ onBack }: CityViewProps) {
         ))}
       </div>
 
-      {/* 3D Canvas - PERFORMANCE OPTIMIZED: throttled updates, adaptive DPR */}
+      {/* 3D Canvas - PERFORMANCE OPTIMIZED: demand render, wider FOV for scale */}
       <Canvas
-        camera={{ position: [400, 300, 400], fov: 60, near: 1, far: 5000 }}
+        camera={{ position: [500, 350, 500], fov: 75, near: 1, far: 5000 }}
         style={{ background: '#0a0a1a' }}
-        dpr={[1, 1.5]}
-        frameloop="always"
+        dpr={[1, 1.25]}
+        frameloop="demand"
         gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping }}
       >
         <PerformanceMonitor
