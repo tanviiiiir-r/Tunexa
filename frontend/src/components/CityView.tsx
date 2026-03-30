@@ -27,6 +27,18 @@ interface CityResponse {
   genres: string[];
 }
 
+// Camera Controller - ensures proper initial view
+function CameraController() {
+  const { camera } = useThree();
+
+  useEffect(() => {
+    camera.position.set(250, 250, 250);
+    camera.lookAt(0, 0, 0);
+  }, [camera]);
+
+  return null;
+}
+
 // Building Types for 3D Rendering
 interface Building {
   id: string;
@@ -717,9 +729,10 @@ export default function CityView({ onBack }: CityViewProps) {
 
       {/* 3D Canvas */}
       <Canvas
-        camera={{ position: [150, 150, 150], fov: 75 }}
+        camera={{ position: [250, 250, 250], fov: 60, near: 1, far: 1000 }}
         style={{ background: '#0a0a1a' }}
       >
+        <CameraController />
         <CityScene cityData={cityData} onBuildingClick={handleBuildingClick} />
       </Canvas>
 
