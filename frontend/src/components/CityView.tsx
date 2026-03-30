@@ -168,7 +168,7 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
   // STEP 1: Building Dimensions - Git City style
   // Constants
   const MIN_BUILDING_HEIGHT = 35;
-  const MAX_BUILDING_HEIGHT = 400;
+  const MAX_BUILDING_HEIGHT = 300;
   const HEIGHT_RANGE = MAX_BUILDING_HEIGHT - MIN_BUILDING_HEIGHT;
 
   // Height: Power curve for better distribution, multi-factor (listeners + tracks)
@@ -190,15 +190,18 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
   const depthRatio = 0.8 + (Math.random() * 0.4); // 0.8-1.2
   const buildingDepth = buildingWidth * depthRatio;
 
-  // Generate windows based on building height
-  const floorHeight = 6; // units per floor
-  const floors = Math.max(3, Math.floor(buildingHeight / floorHeight));
+  // Generate windows based on building height - REDUCED for performance
+  const floorHeight = 12; // Increased from 6 to reduce window count
+  const floors = Math.max(2, Math.floor(buildingHeight / floorHeight));
   const windows: Array<{floor: number; is_lit: boolean}> = [];
   for (let i = 0; i < floors; i++) {
-    windows.push({
-      floor: i,
-      is_lit: Math.random() > 0.3 // 70% lit windows
-    });
+    // Only add lit windows, skip dark ones for performance
+    if (Math.random() > 0.4) { // 60% of floors have lit windows
+      windows.push({
+        floor: i,
+        is_lit: true
+      });
+    }
   }
 
   return {
@@ -284,11 +287,11 @@ function BuildingMesh({ building, onClick, index, focusedBuildingId }: { buildin
     }
   });
 
-  // Create windows
+  // Create windows - OPTIMIZED: fewer windows for better performance
   const windows = useMemo(() => {
     const windowMeshes = [];
-    const floors = Math.max(1, Math.floor(dimensions.height / 5));
-    const windowsPerFloor = 4;
+    const floors = Math.max(1, Math.floor(dimensions.height / 12)); // Taller floors = fewer meshes
+    const windowsPerFloor = 2; // Reduced from 4 to 2
 
     for (let floor = 0; floor < floors; floor++) {
       for (let w = 0; w < windowsPerFloor; w++) {
@@ -296,7 +299,7 @@ function BuildingMesh({ building, onClick, index, focusedBuildingId }: { buildin
         const radius = dimensions.width / 2 + 0.1;
         const wx = Math.cos(angle) * radius;
         const wz = Math.sin(angle) * radius;
-        const wy = floor * 5 - dimensions.height / 2 + 2.5;
+        const wy = floor * 12 - dimensions.height / 2 + 6;
 
         const isLit = building.windows && building.windows[floor] ? building.windows[floor].is_lit : false;
         const windowColor = isLit ? '#FFD700' : '#333333';
@@ -513,6 +516,9 @@ function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
         enableRotate={true}
         maxDistance={3000}
         minDistance={20}
+        enableDamping={true}
+        dampingFactor={0.05}
+        smoothZoom={true}
       />
 
       {/* STEP 3: Bloom Post-Processing */}
