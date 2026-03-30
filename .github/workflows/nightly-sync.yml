@@ -1,0 +1,39 @@
+name: Nightly Sync
+
+on:
+  schedule:
+    # Run daily at 3:00 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests python-dotenv supabase
+
+      - name: Run nightly sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+        run: |
+          cd scripts
+          python 05_nightly_sync.py
+
+      - name: Notify on success
+        if: success()
+        run: echo "✅ Nightly sync completed successfully"
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "❌ Nightly sync failed"
