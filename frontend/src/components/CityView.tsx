@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, Text } from '@react-three/drei';
+import { OrbitControls, Text, PerformanceMonitor, Stats } from '@react-three/drei';
 import * as THREE from 'three';
 import { apiUrl } from '../config';
 import { THEMES, DEFAULT_THEME, type CityTheme } from '../lib/themes';
@@ -373,9 +373,12 @@ function Ground() {
   );
 }
 
-// STEP 3: SkyDome with gradient (Git City style)
+// STEP 3: SkyDome with gradient (Git City style - centered on camera for performance)
 // STEP 6: Now accepts theme prop
 function SkyDome({ theme }: { theme: CityTheme }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { camera } = useThree();
+
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 4;
@@ -396,10 +399,17 @@ function SkyDome({ theme }: { theme: CityTheme }) {
     return tex;
   }, [theme]);
 
+  // Center sky dome on camera so it always follows (smaller geometry, better performance)
+  useFrame(() => {
+    if (meshRef.current) {
+      meshRef.current.position.copy(camera.position);
+    }
+  });
+
   return (
-    <mesh renderOrder={-1}>
-      <sphereGeometry args={[3000, 32, 48]} />
-      <meshBasicMaterial map={texture} side={THREE.BackSide} fog={false} />
+    <mesh ref={meshRef} renderOrder={-1}>
+      <sphereGeometry args={[3500, 32, 48]} />
+      <meshBasicMaterial map={texture} side={THREE.BackSide} fog={false} depthWrite={false} />
     </mesh>
   );
 }
@@ -437,7 +447,33 @@ function DistrictMarkers({ districts }: { districts: District[] }) {
   );
 }
 
+// Spatial Grid for efficient LOD queries (Git City pattern)
+const GRID_CELL_SIZE = 200;
+
+interface GridIndex {
+  cells: Map<string, number[]>;
+  cellSize: number;
+}
+
+function buildSpatialGrid(buildings: Building[]): GridIndex {
+  const cells = new Map<string, number[]>();
+  for (let i = 0; i < buildings.length; i++) {
+    const b = buildings[i];
+    const cx = Math.floor(b.position.x / GRID_CELL_SIZE);
+    const cz = Math.floor(b.position.z / GRID_CELL_SIZE);
+    const key = `${cx},${cz}`;
+    let arr = cells.get(key);
+    if (!arr) {
+      arr = [];
+      cells.set(key, arr);
+    }
+    arr.push(i);
+  }
+  return { cells, cellSize: GRID_CELL_SIZE };
+}
+
 // Main City Scene - STEP 6: Now accepts theme prop, STEP 8: Now accepts focusedBuildingId
+// PERFORMANCE: Uses spatial grid for efficient LOD - no React re-renders on camera move
 function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
   cityData: { buildings: Building[]; districts: District[] };
   onBuildingClick: (building: Building) => void;
@@ -446,47 +482,12 @@ function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
 }) {
   const { buildings, districts } = cityData;
 
-  // PERFORMANCE: Get camera position for distance-based LOD
-  const { camera } = useThree();
-  const [camPos, setCamPos] = useState(camera.position);
+  // Build spatial grid once
+  const grid = useMemo(() => buildSpatialGrid(buildings), [buildings]);
 
-  // Update camera position every frame for LOD calculations
-  useFrame(() => {
-    if (camera.position.distanceTo(camPos) > 50) {
-      setCamPos(camera.position.clone());
-    }
-  });
-
-  // PERFORMANCE: Only render buildings within render distance
-  // Always render focused building regardless of distance
-  const RENDER_DISTANCE = 500; // Reduced from 800
-  const MAX_BUILDINGS = 50; // Hard cap: only render closest 50 buildings
-
-  const visibleBuildings = useMemo(() => {
-    // Calculate distances for all buildings
-    const withDistances = buildings.map(b => {
-      const dx = b.position.x - camPos.x;
-      const dz = b.position.z - camPos.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      return { building: b, dist };
-    });
-
-    // Sort by distance and take closest ones
-    withDistances.sort((a, b) => a.dist - b.dist);
-
-    // Filter: within distance AND within max count, but always include focused
-    return withDistances
-      .filter(({ building, dist }) => {
-        if (focusedBuildingId === building.id) return true;
-        return dist < RENDER_DISTANCE;
-      })
-      .slice(0, MAX_BUILDINGS)
-      .map(({ building }) => building);
-  }, [buildings, camPos, focusedBuildingId]);
-
-  // Convert to GitCityBuildings format with texture atlas data
+  // Convert ALL buildings to GitCityBuildings format (stable reference)
   const gitCityBuildings = useMemo(() => {
-    return visibleBuildings.map(b => {
+    return buildings.map(b => {
       const floors = Math.max(3, Math.floor(b.dimensions.height / 12));
       const windowsPerFloor = Math.max(3, Math.floor(b.dimensions.width / 6));
       return {
@@ -499,7 +500,65 @@ function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
         litPercentage: b.style.brightness || 0.5,
       };
     });
-  }, [visibleBuildings]);
+  }, [buildings]);
+
+  // PERFORMANCE: Visibility tracking with refs (no React re-renders)
+  const { camera } = useThree();
+  const [visibleIds, setVisibleIds] = useState<Set<string>>(() => new Set(buildings.slice(0, 50).map(b => b.id)));
+  const visibleIdsRef = useRef(visibleIds);
+  const lastUpdate = useRef(0);
+  const buildingIndexById = useMemo(() => {
+    const map = new Map<string, number>();
+    buildings.forEach((b, i) => map.set(b.id, i));
+    return map;
+  }, [buildings]);
+
+  // Update visible buildings in useFrame (runs every frame, updates state at 5Hz)
+  useFrame(() => {
+    const now = performance.now();
+    if (now - lastUpdate.current < 200) return; // 5Hz
+    lastUpdate.current = now;
+
+    const cx = Math.floor(camera.position.x / GRID_CELL_SIZE);
+    const cz = Math.floor(camera.position.z / GRID_CELL_SIZE);
+
+    // Query 3x3 grid around camera
+    const candidates: number[] = [];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        const key = `${cx + dx},${cz + dz}`;
+        const cell = grid.cells.get(key);
+        if (cell) candidates.push(...cell);
+      }
+    }
+
+    // Sort by distance, take closest 50
+    const camX = camera.position.x;
+    const camZ = camera.position.z;
+    const withDist = candidates.map(idx => {
+      const b = buildings[idx];
+      const dx = b.position.x - camX;
+      const dz = b.position.z - camZ;
+      return { id: b.id, dist: dx * dx + dz * dz };
+    });
+    withDist.sort((a, b) => a.dist - b.dist);
+
+    const newVisible = new Set(withDist.slice(0, 50).map(b => b.id));
+    if (focusedBuildingId) newVisible.add(focusedBuildingId);
+
+    // Only update if changed
+    if (newVisible.size !== visibleIdsRef.current.size ||
+        [...newVisible].some(id => !visibleIdsRef.current.has(id))) {
+      visibleIdsRef.current = newVisible;
+      setVisibleIds(newVisible);
+    }
+  });
+
+  // Lookup original building by id
+  const findBuilding = useCallback((id: string) => {
+    const idx = buildingIndexById.get(id);
+    return idx !== undefined ? buildings[idx] : null;
+  }, [buildingIndexById, buildings]);
 
   return (
     <>
@@ -543,7 +602,7 @@ function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
       <GitCityBuildings
         buildings={gitCityBuildings}
         onBuildingClick={(b) => {
-          const original = visibleBuildings.find(vb => vb.id === b.id);
+          const original = findBuilding(b.id);
           if (original) onBuildingClick(original);
         }}
         theme={theme}
@@ -1237,13 +1296,19 @@ export default function CityView({ onBack }: CityViewProps) {
         ))}
       </div>
 
-      {/* 3D Canvas - PERFORMANCE: dpr limited, antialiasing disabled */}
+      {/* 3D Canvas - PERFORMANCE OPTIMIZED: throttled updates, adaptive DPR */}
       <Canvas
         camera={{ position: [400, 300, 400], fov: 60, near: 1, far: 5000 }}
         style={{ background: '#0a0a1a' }}
         dpr={[1, 1.5]}
-        gl={{ antialias: false, powerPreference: 'high-performance' }}
+        frameloop="always"
+        gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping }}
       >
+        <PerformanceMonitor
+          onIncline={() => {}}
+          onDecline={() => {}}
+        />
+        <Stats showPanel={0} />
         <CameraController />
         <CityScene cityData={cityData} onBuildingClick={handleBuildingClick} theme={currentTheme} focusedBuildingId={focusedBuildingId} />
       </Canvas>
