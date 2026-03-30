@@ -459,15 +459,29 @@ function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
 
   // PERFORMANCE: Only render buildings within render distance
   // Always render focused building regardless of distance
-  const RENDER_DISTANCE = 800; // Only render buildings within 800 units
+  const RENDER_DISTANCE = 500; // Reduced from 800
+  const MAX_BUILDINGS = 50; // Hard cap: only render closest 50 buildings
+
   const visibleBuildings = useMemo(() => {
-    return buildings.filter(b => {
-      if (focusedBuildingId === b.id) return true;
+    // Calculate distances for all buildings
+    const withDistances = buildings.map(b => {
       const dx = b.position.x - camPos.x;
       const dz = b.position.z - camPos.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
-      return dist < RENDER_DISTANCE;
+      return { building: b, dist };
     });
+
+    // Sort by distance and take closest ones
+    withDistances.sort((a, b) => a.dist - b.dist);
+
+    // Filter: within distance AND within max count, but always include focused
+    return withDistances
+      .filter(({ building, dist }) => {
+        if (focusedBuildingId === building.id) return true;
+        return dist < RENDER_DISTANCE;
+      })
+      .slice(0, MAX_BUILDINGS)
+      .map(({ building }) => building);
   }, [buildings, camPos, focusedBuildingId]);
 
   return (
@@ -486,8 +500,7 @@ function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
         intensity={theme.sunIntensity}
         color={theme.sunColor}
         position={theme.sunPos}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
+        castShadow={false}
       />
 
       {/* 3. Fill Light - reduces harsh shadows */}
@@ -523,22 +536,15 @@ function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
-        maxDistance={3000}
-        minDistance={20}
+        maxDistance={1200}
+        minDistance={30}
         enableDamping={true}
-        dampingFactor={0.05}
-        smoothZoom={true}
+        dampingFactor={0.15}
+        rotateSpeed={0.5}
+        zoomSpeed={0.8}
       />
 
-      {/* STEP 3: Bloom Post-Processing */}
-      <EffectComposer>
-        <Bloom
-          luminanceThreshold={0.3}
-          luminanceSmoothing={0.5}
-          height={256}
-          intensity={0.15}
-        />
-      </EffectComposer>
+      {/* PERFORMANCE: Bloom disabled for 60 FPS */}
     </>
   );
 }
@@ -1213,10 +1219,12 @@ export default function CityView({ onBack }: CityViewProps) {
         ))}
       </div>
 
-      {/* 3D Canvas */}
+      {/* 3D Canvas - PERFORMANCE: dpr limited, antialiasing disabled */}
       <Canvas
         camera={{ position: [400, 300, 400], fov: 60, near: 1, far: 5000 }}
         style={{ background: '#0a0a1a' }}
+        dpr={[1, 1.5]}
+        gl={{ antialias: false, powerPreference: 'high-performance' }}
       >
         <CameraController />
         <CityScene cityData={cityData} onBuildingClick={handleBuildingClick} theme={currentTheme} focusedBuildingId={focusedBuildingId} />
