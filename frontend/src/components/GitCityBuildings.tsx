@@ -400,8 +400,11 @@ export default memo(function GitCityBuildings({
     mesh.count = count;
   }, [buildings, count, uvFrontData, uvSideData, riseData, tintData]);
 
-  // Rise animation
+  // Rise animation - completely stops when done
+  const riseCompleteRef = useRef(false);
   useFrame(({ clock }) => {
+    if (riseCompleteRef.current) return; // Early exit if done
+
     const mesh = meshRef.current;
     if (!mesh) return;
 
@@ -417,7 +420,10 @@ export default memo(function GitCityBuildings({
     }
 
     const rising = risingRef.current;
-    if (rising.length === 0) return;
+    if (rising.length === 0) {
+      riseCompleteRef.current = true; // Mark as complete
+      return;
+    }
 
     const riseAttr = mesh.geometry.getAttribute("aRise") as THREE.InstancedBufferAttribute;
     if (!riseAttr) return;

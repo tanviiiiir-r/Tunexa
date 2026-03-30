@@ -1304,11 +1304,6 @@ export default function CityView({ onBack }: CityViewProps) {
         frameloop="demand"
         gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping }}
       >
-        <PerformanceMonitor
-          onIncline={() => {}}
-          onDecline={() => {}}
-        />
-        <Stats showPanel={0} />
         <CameraController />
         <CityScene cityData={cityData} onBuildingClick={handleBuildingClick} theme={currentTheme} focusedBuildingId={focusedBuildingId} />
       </Canvas>
