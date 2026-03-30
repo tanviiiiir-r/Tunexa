@@ -715,11 +715,6 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
         </div>
 
         {/* Claim Artist Button */}
-        <div style={{ marginTop: '1.5rem' }}>
-          <ClaimArtistButton artistId={building.artist_id} artistName={building.artist_name} />
-        </div>
-
-        {/* Claim Artist Button */}
         <div style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>
           <ClaimArtistButton artistId={building.artist_id} artistName={building.artist_name} />
         </div>
