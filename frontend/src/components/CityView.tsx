@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
@@ -404,6 +404,130 @@ function SkyDome({ theme }: { theme: CityTheme }) {
   );
 }
 
+// PERFORMANCE: Git City-style InstancedMesh for ALL buildings
+// Single draw call for thousands of buildings vs 1 per building
+function InstancedBuildings({ buildings, onBuildingClick, theme, focusedBuildingId }: {
+  buildings: Building[];
+  onBuildingClick: (building: Building) => void;
+  theme: CityTheme;
+  focusedBuildingId: string | null;
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const { camera, raycaster, pointer, scene } = useThree();
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  // Reused temp objects (Git City pattern) - avoid GC
+  const _matrix = useMemo(() => new THREE.Matrix4(), []);
+  const _position = useMemo(() => new THREE.Vector3(), []);
+  const _quaternion = useMemo(() => new THREE.Quaternion(), []);
+  const _scale = useMemo(() => new THREE.Vector3(1, 1, 1), []);
+  const _color = useMemo(() => new THREE.Color(), []);
+
+  // Shared geometry - ONE BoxGeometry for all buildings (Git City style)
+  const geometry = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
+
+  // Shared material with custom properties
+  const material = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: '#808080',
+      roughness: 0.4,
+      metalness: 0.1,
+    });
+  }, []);
+
+  // Update instance matrices and colors when buildings change
+  useEffect(() => {
+    if (!meshRef.current) return;
+
+    const isDimmed = focusedBuildingId !== null;
+    const dimOpacity = 0.4;
+
+    buildings.forEach((building, i) => {
+      // Position: y is at half height (pivot at bottom)
+      _position.set(
+        building.position.x,
+        building.dimensions.height / 2,
+        building.position.z
+      );
+
+      // Scale to building dimensions
+      _scale.set(
+        building.dimensions.width,
+        building.dimensions.height,
+        building.dimensions.depth
+      );
+
+      // Compose matrix
+      _matrix.compose(_position, _quaternion, _scale);
+      meshRef.current!.setMatrixAt(i, _matrix);
+
+      // Set color based on building style + focus state
+      const baseColor = new THREE.Color(building.style.color);
+      if (isDimmed && building.id !== focusedBuildingId) {
+        baseColor.multiplyScalar(dimOpacity);
+      }
+      meshRef.current!.setColorAt(i, baseColor);
+    });
+
+    meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current.instanceColor) {
+      meshRef.current.instanceColor.needsUpdate = true;
+    }
+  }, [buildings, focusedBuildingId, _matrix, _position, _quaternion, _scale]);
+
+  // Handle raycasting for clicks
+  const handleClick = useCallback(() => {
+    if (!meshRef.current) return;
+
+    raycaster.setFromCamera(pointer, camera);
+    const intersection = raycaster.intersectObject(meshRef.current);
+
+    if (intersection.length > 0) {
+      const instanceId = intersection[0].instanceId!;
+      const building = buildings[instanceId];
+      if (building) {
+        onBuildingClick(building);
+      }
+    }
+  }, [buildings, camera, onBuildingClick, pointer, raycaster]);
+
+  // Handle hover cursor
+  useEffect(() => {
+    if (!meshRef.current) return;
+
+    const handlePointerMove = () => {
+      raycaster.setFromCamera(pointer, camera);
+      const intersection = raycaster.intersectObject(meshRef.current!);
+
+      if (intersection.length > 0) {
+        const instanceId = intersection[0].instanceId!;
+        const building = buildings[instanceId];
+        if (building) {
+          setHoveredId(building.id);
+          document.body.style.cursor = 'pointer';
+        }
+      } else {
+        setHoveredId(null);
+        document.body.style.cursor = 'default';
+      }
+    };
+
+    window.addEventListener('mousemove', handlePointerMove);
+    return () => window.removeEventListener('mousemove', handlePointerMove);
+  }, [buildings, camera, pointer, raycaster]);
+
+  if (buildings.length === 0) return null;
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[geometry, material, buildings.length]}
+      onClick={handleClick}
+      frustumCulled={true}
+    />
+  );
+}
+
 // District markers
 function DistrictMarkers({ districts }: { districts: District[] }) {
   if (!districts || districts.length === 0) return null;
@@ -522,15 +646,13 @@ function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
 
       {districts.length > 0 && <DistrictMarkers districts={districts} />}
 
-      {visibleBuildings.map((building, idx) => (
-        <BuildingMesh
-          key={building.id}
-          building={building}
-          onClick={onBuildingClick}
-          index={idx}
-          focusedBuildingId={focusedBuildingId}
-        />
-      ))}
+      {/* PERFORMANCE: Git City-style - Single InstancedMesh for all buildings */}
+      <InstancedBuildings
+        buildings={visibleBuildings}
+        onBuildingClick={onBuildingClick}
+        theme={theme}
+        focusedBuildingId={focusedBuildingId}
+      />
 
       <OrbitControls
         enablePan={true}
