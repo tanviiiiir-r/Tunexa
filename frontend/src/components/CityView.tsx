@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { apiUrl } from '../config';
 
@@ -89,33 +90,66 @@ const GENRE_COLORS: Record<string, string> = {
 type Position = { x: number; z: number };
 const positionCache = new Map<string, Position>();
 
-// Git City style - proper spacing with organic layout
+// STEP 2: Block-based layout with dense spacing (Git City style)
+// Block layout constants
+const BLOCK_SIZE = 3;           // 3x3 buildings per block
+const LOT_W = 35;              // Lot width (X)
+const LOT_D = 35;              // Lot depth (Z)
+const ALLEY_W = 4;             // Gap between buildings in block
+const STREET_W = 15;           // Street width between blocks
+
+const BLOCK_FOOTPRINT_X = BLOCK_SIZE * (LOT_W + ALLEY_W); // 117 units
+const BLOCK_FOOTPRINT_Z = BLOCK_SIZE * (LOT_D + ALLEY_W); // 117 units
+const HORIZONTAL_SPACING = LOT_W + ALLEY_W;  // 39 units
+const VERTICAL_SPACING = LOT_D + ALLEY_W;    // 39 units
+
+// Spiral coordinate generator (from Git City)
+function spiralCoord(index: number): [number, number] {
+  if (index === 0) return [0, 0];
+  let x = 0, y = 0, dx = 1, dy = 0;
+  let segLen = 1, segPassed = 0, turns = 0;
+  for (let i = 0; i < index; i++) {
+    x += dx; y += dy; segPassed++;
+    if (segPassed === segLen) {
+      segPassed = 0;
+      const tmp = dx; dx = -dy; dy = tmp; // turn left
+      turns++; if (turns % 2 === 0) segLen++;
+    }
+  }
+  return [x, y];
+}
+
+// Git City style - Block-based layout with dense spacing
 function getArtistPosition(artist: Artist, index: number): { x: number, z: number } {
-  // Always generate fresh positions with wide spacing (ignore DB coords for now)
-  // This ensures proper Git City layout regardless of database values
-  const useDatabaseCoords = false; // Set to true to use DB coords
+  // Always generate fresh positions (ignore DB coords for now)
+  const useDatabaseCoords = false;
 
   if (useDatabaseCoords && artist.city_x !== null && artist.city_z !== null && artist.city_x !== 0 && artist.city_z !== 0) {
     return { x: artist.city_x, z: artist.city_z };
   }
 
-  // Git City style: wide spacing, staggered rows, organic feel
-  const gridSize = 15; // 15x15 grid for more space
-  const spacing = 120; // 120 units between buildings - much more space
+  // STEP 2: Block-based positioning with spiral layout
+  const buildingsPerBlock = BLOCK_SIZE * BLOCK_SIZE; // 9 buildings per block
+  const blockIndex = Math.floor(index / buildingsPerBlock);
+  const [blockX, blockZ] = spiralCoord(blockIndex);
 
-  const col = index % gridSize;
-  const row = Math.floor(index / gridSize);
+  // Position within block
+  const localIndex = index % buildingsPerBlock;
+  const localRow = Math.floor(localIndex / BLOCK_SIZE);
+  const localCol = localIndex % BLOCK_SIZE;
 
-  // Stagger every other row for organic city look
-  const stagger = (row % 2) * (spacing * 0.5);
+  // Calculate world position
+  // Center the block around 0
+  const centerOffset = (BLOCK_SIZE - 1) / 2; // 1
+  const posX = blockX * (BLOCK_FOOTPRINT_X + STREET_W) +
+               (localCol - centerOffset) * HORIZONTAL_SPACING;
+  const posZ = blockZ * (BLOCK_FOOTPRINT_Z + STREET_W) +
+               (localRow - centerOffset) * VERTICAL_SPACING;
 
-  // Small jitter for natural feel (±15 units, not too much)
-  const jitter = () => (Math.random() - 0.5) * 30;
+  // Small jitter for organic feel (±4 units like Git City)
+  const jitter = () => (Math.random() - 0.5) * 8;
 
-  const x = (col - gridSize / 2) * spacing + stagger + jitter();
-  const z = (row - gridSize / 2) * spacing + jitter();
-
-  return { x, z };
+  return { x: posX + jitter(), z: posZ + jitter() };
 }
 
 // Transform artist to building format - Git City style: tall, narrow, distinct
@@ -130,24 +164,30 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
   const maxListeners = 10000000; // 10M as max
   const popularity = Math.min(100, Math.round((artist.lastfm_listeners / maxListeners) * 100));
 
-  // Git City style dimensions: narrow width, tall height
-  // Width: 10-20 units (narrow like skyscrapers)
-  // Height: proportional to listeners (50-200 units, much taller than wide)
-  const baseWidth = 12;
-  const widthVariation = Math.log10(Math.max(10, artist.track_count)) * 2;
-  const buildingWidth = Math.min(20, baseWidth + widthVariation);
+  // STEP 1: Building Dimensions - Git City style
+  // Constants
+  const MIN_BUILDING_HEIGHT = 35;
+  const MAX_BUILDING_HEIGHT = 400;
+  const HEIGHT_RANGE = MAX_BUILDING_HEIGHT - MIN_BUILDING_HEIGHT;
 
-  // Height based on listeners - dramatic variation like Git City
-  // Small artists: 20 units, Mega stars: 200+ units
-  const minHeight = 20;
-  const maxHeight = 220;
+  // Height: Power curve for better distribution, multi-factor (listeners + tracks)
+  const listenerNorm = artist.lastfm_listeners / maxListeners;
+  const trackNorm = Math.min(1, artist.track_count / 1000);
+  // Weighted composite: 70% listeners, 30% track count
+  const heightScore =
+    Math.pow(Math.min(listenerNorm, 3), 0.6) * 0.7 +
+    Math.pow(trackNorm, 0.5) * 0.3;
+  const buildingHeight = MIN_BUILDING_HEIGHT + (heightScore * HEIGHT_RANGE);
 
-  // Use square root for better distribution (not as flat as log, not as extreme as linear)
-  const sqrtListeners = Math.sqrt(artist.lastfm_listeners);
-  const sqrtMax = Math.sqrt(10000000); // ~3162
-  const heightScale = Math.min(1, sqrtListeners / sqrtMax);
+  // Width: 12-39 range with power curve and jitter (Git City style)
+  const baseWidth = 14;
+  const widthScore = Math.pow(Math.min(1, artist.track_count / 1000), 0.5) * 21; // 0-21 range
+  const jitter = (Math.random() - 0.5) * 4; // ±2 units seeded jitter
+  const buildingWidth = Math.round(baseWidth + widthScore + jitter);
 
-  const buildingHeight = minHeight + (heightScale * (maxHeight - minHeight));
+  // Depth: Varies from width (not square) - 0.8 to 1.2× width
+  const depthRatio = 0.8 + (Math.random() * 0.4); // 0.8-1.2
+  const buildingDepth = buildingWidth * depthRatio;
 
   // Generate windows based on building height
   const floorHeight = 6; // units per floor
@@ -173,7 +213,7 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
     dimensions: {
       width: buildingWidth,
       height: buildingHeight,
-      depth: buildingWidth // depth matches width for square footprint
+      depth: buildingDepth // STEP 1: Rectangular buildings (not square)
     },
     style: {
       color: color,
@@ -192,12 +232,47 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
 }
 
 // Building Component with Click Handler and Pulse Animation
-function BuildingMesh({ building, onClick }: { building: Building; onClick: (building: Building) => void }) {
+function BuildingMesh({ building, onClick, index }: { building: Building; onClick: (building: Building) => void; index: number }) {
   const position = building.position;
   const dimensions = building.dimensions;
   const style = building.style;
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+
+  // STEP 4: Rise Animation - Building grows from ground on load
+  const [riseProgress, setRiseProgress] = useState(0.001);
+  const [hasAnimated, setHasAnimated] = useState(false);
+
+  useEffect(() => {
+    if (hasAnimated) return;
+
+    const RISE_DURATION = 850; // ms (matches Git City)
+    const staggerDelay = index * 15; // 15ms stagger per building
+
+    const timer = setTimeout(() => {
+      const startTime = performance.now();
+
+      const animate = () => {
+        const elapsed = performance.now() - startTime;
+        const progress = Math.min(1, elapsed / RISE_DURATION);
+
+        // Cubic ease-out
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setRiseProgress(0.001 + eased * (1 - 0.001));
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          setHasAnimated(true);
+        }
+      };
+
+      requestAnimationFrame(animate);
+    }, staggerDelay);
+
+    return () => clearTimeout(timer);
+  }, [index, hasAnimated]);
+  const groupRef = useRef<THREE.Group>(null);
 
   // Pulse animation for popular buildings
   useFrame((state) => {
@@ -250,7 +325,8 @@ function BuildingMesh({ building, onClick }: { building: Building; onClick: (bui
 
   return (
     <group
-      position={[position.x, position.y + dimensions.height / 2, position.z]}
+      position={[position.x, position.y + (dimensions.height / 2) * riseProgress, position.z]}
+      scale={[1, riseProgress, 1]}
       onClick={handleClick}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
@@ -290,6 +366,36 @@ function Ground() {
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
       <planeGeometry args={[2000, 2000]} />
       <meshStandardMaterial color="#1a1a2e" />
+    </mesh>
+  );
+}
+
+// STEP 3: SkyDome with gradient (Git City style)
+function SkyDome() {
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 4;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+
+    // Midnight theme gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+    gradient.addColorStop(0, '#1a2848');    // Horizon
+    gradient.addColorStop(0.5, '#0f1828'); // Mid
+    gradient.addColorStop(1, '#0a0f18');   // Top
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 4, 512);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, []);
+
+  return (
+    <mesh renderOrder={-1}>
+      <sphereGeometry args={[3000, 32, 48]} />
+      <meshBasicMaterial map={texture} side={THREE.BackSide} fog={false} />
     </mesh>
   );
 }
@@ -336,20 +442,49 @@ function CityScene({ cityData, onBuildingClick }: {
 
   return (
     <>
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[50, 50, 50]} intensity={0.8} castShadow />
-      <pointLight position={[0, 50, 0]} intensity={0.5} color="#ffffff" />
-      <fog attach="fog" args={['#0a0a1a', 500, 2500]} />
+      {/* STEP 3: Git City 4-Light System + Atmosphere */}
 
+      {/* Fog and Background */}
+      <color attach="background" args={["#101828"]} />
+      <fog attach="fog" args={["#0a1428", 400, 3500]} />
+
+      {/* 1. Ambient Light - base illumination */}
+      <ambientLight intensity={1.65} color="#4060b0" />
+
+      {/* 2. Sun Light - main directional with shadows */}
+      <directionalLight
+        intensity={2.625}
+        color="#7090d0"
+        position={[100, 200, 100]}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+      />
+
+      {/* 3. Fill Light - reduces harsh shadows */}
+      <directionalLight
+        intensity={1.2}
+        color="#6080ff"
+        position={[-100, 100, -100]}
+      />
+
+      {/* 4. Hemisphere Light - sky/ground color blend */}
+      <hemisphereLight
+        skyColor="#5080a0"
+        groundColor="#202838"
+        intensity={1.75}
+      />
+
+      <SkyDome />
       <Ground />
 
       {districts.length > 0 && <DistrictMarkers districts={districts} />}
 
-      {buildings.map((building) => (
+      {buildings.map((building, idx) => (
         <BuildingMesh
           key={building.id}
           building={building}
           onClick={onBuildingClick}
+          index={idx}
         />
       ))}
 
@@ -360,6 +495,16 @@ function CityScene({ cityData, onBuildingClick }: {
         maxDistance={3000}
         minDistance={20}
       />
+
+      {/* STEP 3: Bloom Post-Processing */}
+      <EffectComposer>
+        <Bloom
+          luminanceThreshold={0.2}
+          luminanceSmoothing={0.9}
+          height={300}
+          intensity={0.3}
+        />
+      </EffectComposer>
     </>
   );
 }
