@@ -1,0 +1,262 @@
+/* Pixel-style UI for Tunexa - Git City inspired */
+
+/* Google Font Import - add this to index.html */
+/* @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap'); */
+
+:root {
+  /* Pixel color palette */
+  --pixel-bg: #0a0f18;
+  --pixel-bg-light: #1a1f28;
+  --pixel-text: #e0e0e0;
+  --pixel-text-muted: #808080;
+  --pixel-accent: #c8e64a;
+  --pixel-accent-dark: #9eb82e;
+  --pixel-border: #2a3a4a;
+  --pixel-shadow: rgba(0, 0, 0, 0.5);
+
+  /* Pixel font */
+  --pixel-font: 'VT323', 'Courier New', monospace;
+}
+
+/* Global pixel font */
+body {
+  font-family: var(--pixel-font);
+  font-size: 16px;
+  background-color: var(--pixel-bg);
+  color: var(--pixel-text);
+}
+
+/* Pixel buttons with hard shadows */
+.pixel-button {
+  font-family: var(--pixel-font);
+  font-size: 1rem;
+  padding: 0.5rem 1.25rem;
+  border: 2px solid var(--pixel-border);
+  background-color: var(--pixel-bg-light);
+  color: var(--pixel-text);
+  cursor: pointer;
+  box-shadow: 4px 4px 0 0 var(--pixel-shadow);
+  transition: transform 0.1s, box-shadow 0.1s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pixel-button:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 0 var(--pixel-shadow);
+  border-color: var(--pixel-accent);
+}
+
+.pixel-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
+}
+
+.pixel-button.accent {
+  background-color: var(--pixel-accent);
+  color: #0a0f18;
+  border-color: var(--pixel-accent-dark);
+  font-weight: bold;
+}
+
+.pixel-button.accent:hover {
+  background-color: #d4f04a;
+  border-color: var(--pixel-accent);
+}
+
+/* Pixel panels/cards */
+.pixel-panel {
+  background-color: var(--pixel-bg-light);
+  border: 2px solid var(--pixel-border);
+  box-shadow: 6px 6px 0 0 var(--pixel-shadow);
+  padding: 1rem;
+}
+
+.pixel-panel:hover {
+  border-color: var(--pixel-accent-dark);
+}
+
+/* Pixel text styling */
+.pixel-title {
+  font-family: var(--pixel-font);
+  font-size: 1.5rem;
+  color: var(--pixel-text);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-shadow: 2px 2px 0 var(--pixel-shadow);
+}
+
+.pixel-subtitle {
+  font-family: var(--pixel-font);
+  font-size: 1rem;
+  color: var(--pixel-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Pixel labels and stats */
+.pixel-label {
+  font-family: var(--pixel-font);
+  font-size: 0.85rem;
+  color: var(--pixel-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.pixel-value {
+  font-family: var(--pixel-font);
+  font-size: 1.25rem;
+  color: var(--pixel-text);
+}
+
+/* Form inputs */
+.pixel-input {
+  font-family: var(--pixel-font);
+  font-size: 1rem;
+  padding: 0.5rem;
+  border: 2px solid var(--pixel-border);
+  background-color: var(--pixel-bg);
+  color: var(--pixel-text);
+  outline: none;
+}
+
+.pixel-input:focus {
+  border-color: var(--pixel-accent);
+}
+
+/* Close button (X) */
+.pixel-close {
+  font-family: var(--pixel-font);
+  font-size: 1.5rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--pixel-border);
+  background-color: var(--pixel-bg-light);
+  color: var(--pixel-text);
+  cursor: pointer;
+  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+}
+
+.pixel-close:hover {
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 var(--pixel-shadow);
+}
+
+.pixel-close:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
+}
+
+/* Theme selector buttons */
+.pixel-theme-btn {
+  font-family: var(--pixel-font);
+  font-size: 0.85rem;
+  padding: 0.4rem 0.75rem;
+  border: 2px solid;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.pixel-theme-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 var(--pixel-shadow);
+}
+
+.pixel-theme-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
+}
+
+.pixel-theme-btn.active {
+  font-weight: bold;
+}
+
+/* Loading text */
+.pixel-loading {
+  font-family: var(--pixel-font);
+  font-size: 1.5rem;
+  color: var(--pixel-text);
+  text-align: center;
+  animation: pixel-blink 1s step-end infinite;
+}
+
+@keyframes pixel-blink {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--pixel-bg);
+  border: 1px solid var(--pixel-border);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--pixel-border);
+  border: 1px solid var(--pixel-border);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--pixel-accent-dark);
+}
+
+/* Canvas overlay panels */
+.pixel-overlay {
+  font-family: var(--pixel-font);
+  background-color: rgba(10, 15, 24, 0.9);
+  border: 2px solid var(--pixel-border);
+  box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+/* Artist info panel specific */
+.pixel-info-panel {
+  font-family: var(--pixel-font);
+  background-color: rgba(10, 15, 24, 0.95);
+  border: 2px solid var(--pixel-border);
+  box-shadow: 6px 6px 0 0 rgba(0, 0, 0, 0.5);
+}
+
+.pixel-info-panel .panel-header {
+  border-bottom: 2px solid var(--pixel-border);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pixel-info-panel .stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+/* Error message */
+.pixel-error {
+  font-family: var(--pixel-font);
+  color: #ff6b6b;
+  border: 2px solid #ff6b6b;
+  padding: 1rem;
+  background-color: rgba(255, 107, 107, 0.1);
+}
+
+/* Success message */
+.pixel-success {
+  font-family: var(--pixel-font);
+  color: #c8e64a;
+  border: 2px solid #c8e64a;
+  padding: 1rem;
+  background-color: rgba(200, 230, 74, 0.1);
+}

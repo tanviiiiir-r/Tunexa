@@ -1009,93 +1009,143 @@ export default function CityView({ onBack }: CityViewProps) {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      {/* Stats Overlay */}
+      {/* Stats Overlay - Pixel styled */}
       <div
         style={{
           position: 'absolute',
           top: '1rem',
           left: '1rem',
           zIndex: 10,
-          background: 'rgba(0,0,0,0.7)',
-          color: 'white',
+          background: 'rgba(10, 15, 24, 0.9)',
+          color: '#e0e0e0',
           padding: '1rem',
-          borderRadius: '8px',
-          fontFamily: 'sans-serif'
+          border: '2px solid #2a3a4a',
+          boxShadow: '4px 4px 0 0 rgba(0,0,0,0.5)',
+          fontFamily: "'VT323', monospace",
+          fontSize: '1rem'
         }}
       >
-        <h3 style={{ margin: '0 0 0.5rem 0' }}>🌍 Global City</h3>
-        <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
+        <h3 style={{ margin: '0 0 0.5rem 0', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c8e64a' }}>
+          Global City
+        </h3>
+        <p style={{ margin: '0.25rem 0', fontSize: '1.1rem' }}>
           Buildings: {cityData.buildings?.length || 0}
         </p>
-        <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
+        <p style={{ margin: '0.25rem 0', fontSize: '1.1rem' }}>
           Districts: {cityData.districts?.length || 0}
         </p>
-        <button
-          onClick={() => setCityData(null)}
-          style={{
-            marginTop: '0.5rem',
-            padding: '0.5rem 1rem',
-            fontSize: '0.8rem',
-            cursor: 'pointer',
-            marginRight: '0.5rem'
-          }}
-        >
-          Reload
-        </button>
-        {onBack && (
+        <div style={{ marginTop: '0.75rem' }}>
           <button
-            onClick={onBack}
+            onClick={() => setCityData(null)}
             style={{
-              marginTop: '0.5rem',
               padding: '0.5rem 1rem',
-              fontSize: '0.8rem',
+              marginRight: '0.5rem',
+              fontFamily: "'VT323', monospace",
+              fontSize: '1rem',
+              border: '2px solid #2a3a4a',
+              background: '#1a1f28',
+              color: '#e0e0e0',
               cursor: 'pointer',
-              background: '#dc3545',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
+              boxShadow: '3px 3px 0 0 rgba(0,0,0,0.5)',
+              textTransform: 'uppercase'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#c8e64a';
+              e.currentTarget.style.transform = 'translate(-1px, -1px)';
+              e.currentTarget.style.boxShadow = '4px 4px 0 0 rgba(0,0,0,0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#2a3a4a';
+              e.currentTarget.style.transform = 'translate(0, 0)';
+              e.currentTarget.style.boxShadow = '3px 3px 0 0 rgba(0,0,0,0.5)';
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = 'translate(1px, 1px)';
+              e.currentTarget.style.boxShadow = '2px 2px 0 0 rgba(0,0,0,0.5)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'translate(-1px, -1px)';
+              e.currentTarget.style.boxShadow = '4px 4px 0 0 rgba(0,0,0,0.5)';
             }}
           >
-            ← Back
+            Reload
           </button>
-        )}
+          {onBack && (
+            <button
+              onClick={onBack}
+              style={{
+                padding: '0.5rem 1rem',
+                fontFamily: "'VT323', monospace",
+                fontSize: '1rem',
+                border: '2px solid #ff6b6b',
+                background: '#dc3545',
+                color: '#fff',
+                cursor: 'pointer',
+                boxShadow: '3px 3px 0 0 rgba(0,0,0,0.5)',
+                textTransform: 'uppercase'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translate(-1px, -1px)';
+                e.currentTarget.style.boxShadow = '4px 4px 0 0 rgba(0,0,0,0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translate(0, 0)';
+                e.currentTarget.style.boxShadow = '3px 3px 0 0 rgba(0,0,0,0.5)';
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'translate(1px, 1px)';
+                e.currentTarget.style.boxShadow = '2px 2px 0 0 rgba(0,0,0,0.5)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'translate(-1px, -1px)';
+                e.currentTarget.style.boxShadow = '4px 4px 0 0 rgba(0,0,0,0.5)';
+              }}
+            >
+              Back
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Instruction Overlay */}
+      {/* Instruction Overlay - Pixel styled */}
       <div
         style={{
           position: 'absolute',
           top: '1rem',
           right: '1rem',
           zIndex: 10,
-          background: 'rgba(0,0,0,0.7)',
-          color: 'white',
+          background: 'rgba(10, 15, 24, 0.9)',
+          color: '#e0e0e0',
           padding: '0.75rem 1rem',
-          borderRadius: '8px',
-          fontFamily: 'sans-serif',
-          fontSize: '0.85rem',
+          border: '2px solid #2a3a4a',
+          boxShadow: '4px 4px 0 0 rgba(0,0,0,0.5)',
+          fontFamily: "'VT323', monospace",
+          fontSize: '1rem',
           maxWidth: '200px',
         }}
       >
         Click on any building to see artist info
       </div>
 
-      {/* Theme Selector */}
+      {/* Theme Selector - Pixel styled */}
       <div
         style={{
           position: 'absolute',
           top: '5rem',
           right: '1rem',
           zIndex: 10,
-          background: 'rgba(0,0,0,0.7)',
-          color: 'white',
+          background: 'rgba(10, 15, 24, 0.9)',
+          color: '#e0e0e0',
           padding: '0.75rem 1rem',
-          borderRadius: '8px',
-          fontFamily: 'sans-serif',
-          fontSize: '0.85rem',
+          border: '2px solid #2a3a4a',
+          boxShadow: '4px 4px 0 0 rgba(0,0,0,0.5)',
+          fontFamily: "'VT323', monospace",
+          fontSize: '1rem',
         }}
       >
-        <div style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>Theme</div>
+        <div style={{ marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c8e64a' }}>
+          Theme
+        </div>
         {THEMES.map((theme) => (
           <button
             key={theme.name}
@@ -1105,53 +1155,28 @@ export default function CityView({ onBack }: CityViewProps) {
               width: '100%',
               padding: '0.4rem 0.75rem',
               marginBottom: '0.25rem',
-              fontSize: '0.8rem',
+              fontFamily: "'VT323', monospace",
+              fontSize: '1rem',
               cursor: 'pointer',
-              background: currentTheme.name === theme.name ? theme.accent : '#333',
-              color: currentTheme.name === theme.name ? '#000' : '#fff',
-              border: `1px solid ${theme.accent}`,
-              borderRadius: '4px',
+              background: currentTheme.name === theme.name ? theme.accent : '#1a1f28',
+              color: currentTheme.name === theme.name ? '#000' : '#e0e0e0',
+              border: `2px solid ${currentTheme.name === theme.name ? theme.accent : '#2a3a4a'}`,
+              boxShadow: currentTheme.name === theme.name ? '2px 2px 0 0 rgba(0,0,0,0.5)' : 'none',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = theme.accent;
+            }}
+            onMouseLeave={(e) => {
+              if (currentTheme.name !== theme.name) {
+                e.currentTarget.style.borderColor = '#2a3a4a';
+              }
             }}
           >
             {theme.name}
           </button>
         ))}
-      </div>
-
-      {/* Theme Selector */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '1rem',
-          left: '1rem',
-          zIndex: 10,
-          background: 'rgba(0,0,0,0.8)',
-          color: 'white',
-          padding: '0.75rem 1rem',
-          borderRadius: '8px',
-          fontFamily: 'sans-serif',
-        }}
-      >
-        <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: '#888' }}>Theme</p>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {THEMES.map((theme) => (
-            <button
-              key={theme.name}
-              onClick={() => setCurrentTheme(theme)}
-              style={{
-                padding: '0.4rem 0.8rem',
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-                border: currentTheme.name === theme.name ? `2px solid ${theme.accent}` : '2px solid transparent',
-                borderRadius: '4px',
-                background: currentTheme.name === theme.name ? theme.wall : '#333',
-                color: currentTheme.name === theme.name ? theme.accent : '#fff',
-              }}
-            >
-              {theme.name}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* 3D Canvas */}
