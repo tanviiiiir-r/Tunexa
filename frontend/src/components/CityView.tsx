@@ -27,13 +27,14 @@ interface CityResponse {
   genres: string[];
 }
 
-// Camera Controller - ensures proper initial view
+// Camera Controller - Git City style view from further back
 function CameraController() {
   const { camera } = useThree();
 
   useEffect(() => {
-    camera.position.set(250, 250, 250);
-    camera.lookAt(0, 0, 0);
+    // Position camera further out to see the whole city spread
+    camera.position.set(400, 300, 400);
+    camera.lookAt(0, 50, 0);
   }, [camera]);
 
   return null;
@@ -85,30 +86,39 @@ const GENRE_COLORS: Record<string, string> = {
 };
 
 // Position cache to ensure unique positions
-type Position = { x: number; z: number };const positionCache = new Map<string, Position>();
+type Position = { x: number; z: number };
+const positionCache = new Map<string, Position>();
 
-// Get or generate position for an artist
+// Git City style - proper spacing with organic layout
 function getArtistPosition(artist: Artist, index: number): { x: number, z: number } {
-  // If artist has valid coordinates, use them
-  if (artist.city_x !== null && artist.city_z !== null && artist.city_x !== 0 && artist.city_z !== 0) {
+  // Always generate fresh positions with wide spacing (ignore DB coords for now)
+  // This ensures proper Git City layout regardless of database values
+  const useDatabaseCoords = false; // Set to true to use DB coords
+
+  if (useDatabaseCoords && artist.city_x !== null && artist.city_z !== null && artist.city_x !== 0 && artist.city_z !== 0) {
     return { x: artist.city_x, z: artist.city_z };
   }
 
-  // Otherwise, generate grid position based on index
-  const gridSize = 15; // 15x15 grid
-  const spacing = 20; // 20 units between buildings
+  // Git City style: wide spacing, staggered rows, organic feel
+  const gridSize = 15; // 15x15 grid for more space
+  const spacing = 120; // 120 units between buildings - much more space
 
   const col = index % gridSize;
   const row = Math.floor(index / gridSize);
 
-  // Center the grid around origin
-  const x = (col - gridSize / 2) * spacing;
-  const z = (row - gridSize / 2) * spacing;
+  // Stagger every other row for organic city look
+  const stagger = (row % 2) * (spacing * 0.5);
+
+  // Small jitter for natural feel (±15 units, not too much)
+  const jitter = () => (Math.random() - 0.5) * 30;
+
+  const x = (col - gridSize / 2) * spacing + stagger + jitter();
+  const z = (row - gridSize / 2) * spacing + jitter();
 
   return { x, z };
 }
 
-// Transform artist to building format
+// Transform artist to building format - Git City style: tall, narrow, distinct
 function transformArtistToBuilding(artist: Artist, index: number): Building {
   const genre = artist.genre?.toLowerCase() || 'default';
   const color = GENRE_COLORS[genre] || GENRE_COLORS['default'];
@@ -120,8 +130,22 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
   const maxListeners = 10000000; // 10M as max
   const popularity = Math.min(100, Math.round((artist.lastfm_listeners / maxListeners) * 100));
 
-  // Generate windows based on track count
-  const floors = Math.max(1, Math.floor(artist.track_count / 20));
+  // Git City style dimensions: narrow width, tall height
+  // Width: 10-20 units (narrow like skyscrapers)
+  // Height: proportional to listeners (50-200 units, much taller than wide)
+  const baseWidth = 12;
+  const widthVariation = Math.log10(Math.max(10, artist.track_count)) * 2;
+  const buildingWidth = Math.min(20, baseWidth + widthVariation);
+
+  // Height based on listeners - make buildings tall!
+  const minHeight = 30;
+  const maxHeight = 180;
+  const heightScale = Math.log10(Math.max(100, artist.lastfm_listeners)) / Math.log10(10000000);
+  const buildingHeight = minHeight + (heightScale * (maxHeight - minHeight));
+
+  // Generate windows based on building height
+  const floorHeight = 6; // units per floor
+  const floors = Math.max(3, Math.floor(buildingHeight / floorHeight));
   const windows: Array<{floor: number; is_lit: boolean}> = [];
   for (let i = 0; i < floors; i++) {
     windows.push({
@@ -141,9 +165,9 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
       z: position.z
     },
     dimensions: {
-      width: artist.width || 5,
-      height: artist.height || 10,
-      depth: artist.width || 5
+      width: buildingWidth,
+      height: buildingHeight,
+      depth: buildingWidth // depth matches width for square footprint
     },
     style: {
       color: color,
@@ -253,11 +277,11 @@ function BuildingMesh({ building, onClick }: { building: Building; onClick: (bui
   );
 }
 
-// Ground/Platform
+// Ground/Platform - larger to accommodate wider spacing
 function Ground() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-      <planeGeometry args={[500, 500]} />
+      <planeGeometry args={[2000, 2000]} />
       <meshStandardMaterial color="#1a1a2e" />
     </mesh>
   );
@@ -271,7 +295,7 @@ function DistrictMarkers({ districts }: { districts: District[] }) {
     <>
       {districts.map((district, index) => {
         const angle = (index / Math.max(districts.length, 1)) * Math.PI * 2;
-        const distance = 80;
+        const distance = 350;
         const x = Math.cos(angle) * distance;
         const z = Math.sin(angle) * distance;
 
@@ -325,8 +349,8 @@ function CityScene({ cityData, onBuildingClick }: {
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
-        maxDistance={200}
-        minDistance={20}
+        maxDistance={800}
+        minDistance={50}
       />
     </>
   );
