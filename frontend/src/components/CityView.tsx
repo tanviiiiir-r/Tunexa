@@ -232,8 +232,8 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
   };
 }
 
-// Building Component with Click Handler and Pulse Animation
-function BuildingMesh({ building, onClick, index }: { building: Building; onClick: (building: Building) => void; index: number }) {
+// Building Component with Click Handler, Pulse Animation, and Focus/Dim System
+function BuildingMesh({ building, onClick, index, focusedBuildingId }: { building: Building; onClick: (building: Building) => void; index: number; focusedBuildingId: string | null }) {
   const position = building.position;
   const dimensions = building.dimensions;
   const style = building.style;
@@ -324,6 +324,17 @@ function BuildingMesh({ building, onClick, index }: { building: Building; onClic
 
   const [hovered, setHovered] = useState(false);
 
+  // STEP 8: Focus/Dim System - Calculate opacity based on focus state
+  const isFocused = focusedBuildingId === building.id;
+  const isDimmed = focusedBuildingId !== null && focusedBuildingId !== building.id;
+  const opacity = isDimmed ? 0.4 : 1.0; // 60% dim when not focused
+
+  // Cursor pointer when hovering
+  const { gl } = useThree();
+  useEffect(() => {
+    gl.domElement.style.cursor = hovered ? 'pointer' : 'auto';
+  }, [hovered, gl]);
+
   return (
     <group
       position={[position.x, position.y + (dimensions.height / 2) * riseProgress, position.z]}
@@ -332,6 +343,7 @@ function BuildingMesh({ building, onClick, index }: { building: Building; onClic
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
       frustumCulled={false}
+      visible={opacity > 0.1}
     >
       {/* Main building */}
       <mesh ref={meshRef} frustumCulled={false}>
@@ -341,6 +353,8 @@ function BuildingMesh({ building, onClick, index }: { building: Building; onClic
           color={style.color}
           emissive={style.color}
           emissiveIntensity={hovered ? 0.6 : (style.animation ? 0 : 0.1 + style.brightness * 0.2)}
+          transparent={isDimmed}
+          opacity={opacity}
         />
       </mesh>
 
@@ -435,11 +449,12 @@ function DistrictMarkers({ districts }: { districts: District[] }) {
   );
 }
 
-// Main City Scene - STEP 6: Now accepts theme prop
-function CityScene({ cityData, onBuildingClick, theme }: {
+// Main City Scene - STEP 6: Now accepts theme prop, STEP 8: Now accepts focusedBuildingId
+function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
   cityData: { buildings: Building[]; districts: District[] };
   onBuildingClick: (building: Building) => void;
   theme: CityTheme;
+  focusedBuildingId: string | null;
 }) {
   const { buildings, districts } = cityData;
 
@@ -488,6 +503,7 @@ function CityScene({ cityData, onBuildingClick, theme }: {
           building={building}
           onClick={onBuildingClick}
           index={idx}
+          focusedBuildingId={focusedBuildingId}
         />
       ))}
 
@@ -890,6 +906,7 @@ export default function CityView({ onBack }: CityViewProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
+  const [focusedBuildingId, setFocusedBuildingId] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState<CityTheme>(DEFAULT_THEME);
 
   const fetchCity = async () => {
@@ -927,10 +944,12 @@ export default function CityView({ onBack }: CityViewProps) {
   const handleBuildingClick = (building: Building) => {
     console.log('Building clicked:', building.artist_name);
     setSelectedBuilding(building);
+    setFocusedBuildingId(building.id);
   };
 
   const handleClosePanel = () => {
     setSelectedBuilding(null);
+    setFocusedBuildingId(null);
   };
 
   useEffect(() => {
@@ -1185,7 +1204,7 @@ export default function CityView({ onBack }: CityViewProps) {
         style={{ background: '#0a0a1a' }}
       >
         <CameraController />
-        <CityScene cityData={cityData} onBuildingClick={handleBuildingClick} theme={currentTheme} />
+        <CityScene cityData={cityData} onBuildingClick={handleBuildingClick} theme={currentTheme} focusedBuildingId={focusedBuildingId} />
       </Canvas>
 
       {/* Artist Info Panel */}
