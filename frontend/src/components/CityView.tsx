@@ -137,10 +137,16 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
   const widthVariation = Math.log10(Math.max(10, artist.track_count)) * 2;
   const buildingWidth = Math.min(20, baseWidth + widthVariation);
 
-  // Height based on listeners - make buildings tall!
-  const minHeight = 30;
-  const maxHeight = 180;
-  const heightScale = Math.log10(Math.max(100, artist.lastfm_listeners)) / Math.log10(10000000);
+  // Height based on listeners - dramatic variation like Git City
+  // Small artists: 20 units, Mega stars: 200+ units
+  const minHeight = 20;
+  const maxHeight = 220;
+
+  // Use square root for better distribution (not as flat as log, not as extreme as linear)
+  const sqrtListeners = Math.sqrt(artist.lastfm_listeners);
+  const sqrtMax = Math.sqrt(10000000); // ~3162
+  const heightScale = Math.min(1, sqrtListeners / sqrtMax);
+
   const buildingHeight = minHeight + (heightScale * (maxHeight - minHeight));
 
   // Generate windows based on building height
