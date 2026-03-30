@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from auth import router as auth_router
 from city import router as city_router
+from claims import router as claims_router
 from share import router as share_router, init_db
 from database import supabase, supabase_init_error
 
@@ -29,6 +30,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(city_router)
+app.include_router(claims_router)
 app.include_router(share_router)
 
 @app.get("/health")
