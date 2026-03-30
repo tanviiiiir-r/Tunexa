@@ -47,3 +47,10 @@ spotify/
 # Old/experimental projects
 spotify/
 .iterm2-daemon-1.socket
+
+# Claude Code skills (installed locally, not committed)
+.claude/skills/*
+!.claude/skills/.gitkeep
+
+# Claude skills (local only)
+.claude/skills/
