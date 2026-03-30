@@ -4,6 +4,7 @@ import { OrbitControls, Text } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { apiUrl } from '../config';
+import { THEMES, DEFAULT_THEME, type CityTheme } from '../lib/themes';
 
 // API Response Types
 interface Artist {
@@ -371,18 +372,19 @@ function Ground() {
 }
 
 // STEP 3: SkyDome with gradient (Git City style)
-function SkyDome() {
+// STEP 6: Now accepts theme prop
+function SkyDome({ theme }: { theme: CityTheme }) {
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 4;
     canvas.height = 512;
     const ctx = canvas.getContext('2d')!;
 
-    // Midnight theme gradient
+    // Use theme sky gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, 512);
-    gradient.addColorStop(0, '#1a2848');    // Horizon
-    gradient.addColorStop(0.5, '#0f1828'); // Mid
-    gradient.addColorStop(1, '#0a0f18');   // Top
+    theme.sky.forEach(([stop, color]) => {
+      gradient.addColorStop(stop, color);
+    });
 
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 4, 512);
@@ -390,7 +392,7 @@ function SkyDome() {
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
-  }, []);
+  }, [theme]);
 
   return (
     <mesh renderOrder={-1}>
@@ -433,49 +435,50 @@ function DistrictMarkers({ districts }: { districts: District[] }) {
   );
 }
 
-// Main City Scene
-function CityScene({ cityData, onBuildingClick }: {
+// Main City Scene - STEP 6: Now accepts theme prop
+function CityScene({ cityData, onBuildingClick, theme }: {
   cityData: { buildings: Building[]; districts: District[] };
   onBuildingClick: (building: Building) => void;
+  theme: CityTheme;
 }) {
   const { buildings, districts } = cityData;
 
   return (
     <>
-      {/* STEP 3: Git City 4-Light System + Atmosphere */}
+      {/* STEP 3 & 6: Git City 4-Light System + Themed Atmosphere */}
 
       {/* Fog and Background */}
-      <color attach="background" args={["#101828"]} />
-      <fog attach="fog" args={["#0a1428", 400, 3500]} />
+      <color attach="background" args={[theme.fogColor]} />
+      <fog attach="fog" args={[theme.fogColor, theme.fogNear, theme.fogFar]} />
 
       {/* 1. Ambient Light - base illumination */}
-      <ambientLight intensity={1.65} color="#4060b0" />
+      <ambientLight intensity={theme.ambientIntensity} color={theme.ambientColor} />
 
       {/* 2. Sun Light - main directional with shadows */}
       <directionalLight
-        intensity={2.625}
-        color="#7090d0"
-        position={[100, 200, 100]}
+        intensity={theme.sunIntensity}
+        color={theme.sunColor}
+        position={theme.sunPos}
         castShadow
         shadow-mapSize={[2048, 2048]}
       />
 
       {/* 3. Fill Light - reduces harsh shadows */}
       <directionalLight
-        intensity={1.2}
-        color="#6080ff"
-        position={[-100, 100, -100]}
+        intensity={theme.fillIntensity}
+        color={theme.fillColor}
+        position={theme.fillPos}
       />
 
       {/* 4. Hemisphere Light - sky/ground color blend */}
       <hemisphereLight
-        skyColor="#5080a0"
-        groundColor="#202838"
-        intensity={1.75}
+        skyColor={theme.hemiSky}
+        groundColor={theme.hemiGround}
+        intensity={theme.hemiIntensity}
       />
 
-      <SkyDome />
-      <Ground />
+      <SkyDome theme={theme} />
+      <Ground themeColor={theme.groundColor} />
 
       {districts.length > 0 && <DistrictMarkers districts={districts} />}
 
@@ -887,6 +890,7 @@ export default function CityView({ onBack }: CityViewProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
+  const [currentTheme, setCurrentTheme] = useState<CityTheme>(DEFAULT_THEME);
 
   const fetchCity = async () => {
     setLoading(true);
@@ -1076,13 +1080,87 @@ export default function CityView({ onBack }: CityViewProps) {
         Click on any building to see artist info
       </div>
 
+      {/* Theme Selector */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '5rem',
+          right: '1rem',
+          zIndex: 10,
+          background: 'rgba(0,0,0,0.7)',
+          color: 'white',
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          fontFamily: 'sans-serif',
+          fontSize: '0.85rem',
+        }}
+      >
+        <div style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>Theme</div>
+        {THEMES.map((theme) => (
+          <button
+            key={theme.name}
+            onClick={() => setCurrentTheme(theme)}
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '0.4rem 0.75rem',
+              marginBottom: '0.25rem',
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              background: currentTheme.name === theme.name ? theme.accent : '#333',
+              color: currentTheme.name === theme.name ? '#000' : '#fff',
+              border: `1px solid ${theme.accent}`,
+              borderRadius: '4px',
+            }}
+          >
+            {theme.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Theme Selector */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '1rem',
+          left: '1rem',
+          zIndex: 10,
+          background: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          fontFamily: 'sans-serif',
+        }}
+      >
+        <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: '#888' }}>Theme</p>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {THEMES.map((theme) => (
+            <button
+              key={theme.name}
+              onClick={() => setCurrentTheme(theme)}
+              style={{
+                padding: '0.4rem 0.8rem',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                border: currentTheme.name === theme.name ? `2px solid ${theme.accent}` : '2px solid transparent',
+                borderRadius: '4px',
+                background: currentTheme.name === theme.name ? theme.wall : '#333',
+                color: currentTheme.name === theme.name ? theme.accent : '#fff',
+              }}
+            >
+              {theme.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* 3D Canvas */}
       <Canvas
         camera={{ position: [400, 300, 400], fov: 60, near: 1, far: 5000 }}
         style={{ background: '#0a0a1a' }}
       >
         <CameraController />
-        <CityScene cityData={cityData} onBuildingClick={handleBuildingClick} />
+        <CityScene cityData={cityData} onBuildingClick={handleBuildingClick} theme={currentTheme} />
       </Canvas>
 
       {/* Artist Info Panel */}
