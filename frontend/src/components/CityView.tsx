@@ -254,9 +254,10 @@ function BuildingMesh({ building, onClick }: { building: Building; onClick: (bui
       onClick={handleClick}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
+      frustumCulled={false}
     >
       {/* Main building */}
-      <mesh ref={meshRef}>
+      <mesh ref={meshRef} frustumCulled={false}>
         <boxGeometry args={[dimensions.width, dimensions.height, dimensions.depth]} />
         <meshStandardMaterial
           ref={materialRef}
@@ -338,6 +339,7 @@ function CityScene({ cityData, onBuildingClick }: {
       <ambientLight intensity={0.3} />
       <directionalLight position={[50, 50, 50]} intensity={0.8} castShadow />
       <pointLight position={[0, 50, 0]} intensity={0.5} color="#ffffff" />
+      <fog attach="fog" args={['#0a0a1a', 500, 2500]} />
 
       <Ground />
 
@@ -355,8 +357,8 @@ function CityScene({ cityData, onBuildingClick }: {
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
-        maxDistance={800}
-        minDistance={50}
+        maxDistance={3000}
+        minDistance={20}
       />
     </>
   );
@@ -759,7 +761,7 @@ export default function CityView({ onBack }: CityViewProps) {
 
       {/* 3D Canvas */}
       <Canvas
-        camera={{ position: [250, 250, 250], fov: 60, near: 1, far: 1000 }}
+        camera={{ position: [400, 300, 400], fov: 60, near: 1, far: 5000 }}
         style={{ background: '#0a0a1a' }}
       >
         <CameraController />
