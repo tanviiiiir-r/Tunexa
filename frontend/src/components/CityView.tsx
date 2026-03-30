@@ -34,9 +34,9 @@ function CameraController() {
   const { camera } = useThree();
 
   useEffect(() => {
-    // Position camera further out for wider city view
-    camera.position.set(600, 400, 600);
-    camera.lookAt(0, 30, 0);
+    // Git City starting position: view from behind/above the city
+    camera.position.set(-400, 400, -600);
+    camera.lookAt(0, 50, 0);
   }, [camera]);
 
   return null;
@@ -165,10 +165,10 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
   const maxListeners = 10000000; // 10M as max
   const popularity = Math.min(100, Math.round((artist.lastfm_listeners / maxListeners) * 100));
 
-  // STEP 1: Building Dimensions - Git City style (REDUCED for better scale)
-  // Constants
-  const MIN_BUILDING_HEIGHT = 15;   // Smaller minimum
-  const MAX_BUILDING_HEIGHT = 80;   // Much smaller max - buildings appear too big
+  // STEP 1: Building Dimensions - Git City proportions
+  // Taller buildings (35-200) with proper camera distance (~800) and 55° FOV
+  const MIN_BUILDING_HEIGHT = 35;
+  const MAX_BUILDING_HEIGHT = 200;
   const HEIGHT_RANGE = MAX_BUILDING_HEIGHT - MIN_BUILDING_HEIGHT;
 
   // Height: Power curve for better distribution, multi-factor (listeners + tracks)
@@ -1296,9 +1296,9 @@ export default function CityView({ onBack }: CityViewProps) {
         ))}
       </div>
 
-      {/* 3D Canvas - PERFORMANCE OPTIMIZED: demand render, wider FOV for scale */}
+      {/* 3D Canvas - Git City proportions: 55° FOV, ~800 distance */}
       <Canvas
-        camera={{ position: [500, 350, 500], fov: 75, near: 1, far: 5000 }}
+        camera={{ position: [-400, 400, -600], fov: 55, near: 0.5, far: 8000 }}
         style={{ background: '#0a0a1a' }}
         dpr={[1, 1.25]}
         frameloop="demand"
