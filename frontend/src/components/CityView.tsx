@@ -236,12 +236,14 @@ function transformArtistToBuilding(artist: Artist, index: number): Building {
 }
 
 // Building Component with Click Handler, Pulse Animation, and Focus/Dim System
+// PERFORMANCE: No individual windows - use emissive glow instead
 function BuildingMesh({ building, onClick, index, focusedBuildingId }: { building: Building; onClick: (building: Building) => void; index: number; focusedBuildingId: string | null }) {
   const position = building.position;
   const dimensions = building.dimensions;
   const style = building.style;
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const groupRef = useRef<THREE.Group>(null);
 
   // STEP 4: Rise Animation - Building grows from ground on load
   const [riseProgress, setRiseProgress] = useState(0.001);
@@ -276,7 +278,6 @@ function BuildingMesh({ building, onClick, index, focusedBuildingId }: { buildin
 
     return () => clearTimeout(timer);
   }, [index, hasAnimated]);
-  const groupRef = useRef<THREE.Group>(null);
 
   // Pulse animation for popular buildings
   useFrame((state) => {
@@ -287,38 +288,10 @@ function BuildingMesh({ building, onClick, index, focusedBuildingId }: { buildin
     }
   });
 
-  // Create windows - OPTIMIZED: fewer windows for better performance
-  const windows = useMemo(() => {
-    const windowMeshes = [];
-    const floors = Math.max(1, Math.floor(dimensions.height / 12)); // Taller floors = fewer meshes
-    const windowsPerFloor = 2; // Reduced from 4 to 2
-
-    for (let floor = 0; floor < floors; floor++) {
-      for (let w = 0; w < windowsPerFloor; w++) {
-        const angle = (w / windowsPerFloor) * Math.PI * 2;
-        const radius = dimensions.width / 2 + 0.1;
-        const wx = Math.cos(angle) * radius;
-        const wz = Math.sin(angle) * radius;
-        const wy = floor * 12 - dimensions.height / 2 + 6;
-
-        const isLit = building.windows && building.windows[floor] ? building.windows[floor].is_lit : false;
-        const windowColor = isLit ? '#FFD700' : '#333333';
-        const emissive = isLit ? style.glow_intensity : 0;
-
-        windowMeshes.push(
-          <mesh key={`${building.id}-window-${floor}-${w}`} position={[wx, wy, wz]}>
-            <boxGeometry args={[0.8, 1.5, 0.1]} />
-            <meshStandardMaterial
-              color={windowColor}
-              emissive={windowColor}
-              emissiveIntensity={emissive}
-            />
-          </mesh>
-        );
-      }
-    }
-    return windowMeshes;
-  }, [building, dimensions, style]);
+  // AGGRESSIVE OPTIMIZATION: Skip individual windows entirely
+  // Use building material emissive instead for window glow effect
+  // This reduces draw calls from 50+ per building to 1
+  const hasWindows = dimensions.height > 20;
 
   const handleClick = (e: any) => {
     e.stopPropagation();
@@ -345,11 +318,11 @@ function BuildingMesh({ building, onClick, index, focusedBuildingId }: { buildin
       onClick={handleClick}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
-      frustumCulled={false}
+      frustumCulled={true}
       visible={opacity > 0.1}
     >
       {/* Main building */}
-      <mesh ref={meshRef} frustumCulled={false}>
+      <mesh ref={meshRef} frustumCulled={true}>
         <boxGeometry args={[dimensions.width, dimensions.height, dimensions.depth]} />
         <meshStandardMaterial
           ref={materialRef}
@@ -361,19 +334,31 @@ function BuildingMesh({ building, onClick, index, focusedBuildingId }: { buildin
         />
       </mesh>
 
-      {/* Windows */}
-      {windows}
+      {/* PERFORMANCE: No individual windows - use emissive strips instead */}
+      {dimensions.height > 50 && (
+        <mesh position={[0, 0, dimensions.depth / 2 + 0.05]}>
+          <planeGeometry args={[dimensions.width * 0.6, dimensions.height * 0.7]} />
+          <meshBasicMaterial
+            color="#FFD700"
+            transparent
+            opacity={0.3}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
 
-      {/* Building label */}
-      <Text
-        position={[0, dimensions.height / 2 + 2, 0]}
-        fontSize={2}
-        color="white"
-        anchorX="center"
-        anchorY="bottom"
-      >
-        {building.artist_name}
-      </Text>
+      {/* Building label - only show when hovered or focused for performance */}
+      {(hovered || isFocused) && (
+        <Text
+          position={[0, dimensions.height / 2 + 2, 0]}
+          fontSize={2}
+          color="white"
+          anchorX="center"
+          anchorY="bottom"
+        >
+          {building.artist_name}
+        </Text>
+      )}
     </group>
   );
 }
@@ -461,6 +446,30 @@ function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
 }) {
   const { buildings, districts } = cityData;
 
+  // PERFORMANCE: Get camera position for distance-based LOD
+  const { camera } = useThree();
+  const [camPos, setCamPos] = useState(camera.position);
+
+  // Update camera position every frame for LOD calculations
+  useFrame(() => {
+    if (camera.position.distanceTo(camPos) > 50) {
+      setCamPos(camera.position.clone());
+    }
+  });
+
+  // PERFORMANCE: Only render buildings within render distance
+  // Always render focused building regardless of distance
+  const RENDER_DISTANCE = 800; // Only render buildings within 800 units
+  const visibleBuildings = useMemo(() => {
+    return buildings.filter(b => {
+      if (focusedBuildingId === b.id) return true;
+      const dx = b.position.x - camPos.x;
+      const dz = b.position.z - camPos.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      return dist < RENDER_DISTANCE;
+    });
+  }, [buildings, camPos, focusedBuildingId]);
+
   return (
     <>
       {/* STEP 3 & 6: Git City 4-Light System + Themed Atmosphere */}
@@ -500,7 +509,7 @@ function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
 
       {districts.length > 0 && <DistrictMarkers districts={districts} />}
 
-      {buildings.map((building, idx) => (
+      {visibleBuildings.map((building, idx) => (
         <BuildingMesh
           key={building.id}
           building={building}
@@ -524,10 +533,10 @@ function CityScene({ cityData, onBuildingClick, theme, focusedBuildingId }: {
       {/* STEP 3: Bloom Post-Processing */}
       <EffectComposer>
         <Bloom
-          luminanceThreshold={0.2}
-          luminanceSmoothing={0.9}
-          height={300}
-          intensity={0.3}
+          luminanceThreshold={0.3}
+          luminanceSmoothing={0.5}
+          height={256}
+          intensity={0.15}
         />
       </EffectComposer>
     </>
