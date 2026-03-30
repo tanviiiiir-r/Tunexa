@@ -385,8 +385,8 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
         </button>
 
         {/* Artist Image */}
-        {building.artist_image_url && (
-          <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+        <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+          {building.artist_image_url ? (
             <img
               src={building.artist_image_url}
               alt={building.artist_name}
@@ -399,8 +399,27 @@ function ArtistPanel({ building, onClose }: ArtistPanelProps) {
                 boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
               }}
             />
-          </div>
-        )}
+          ) : (
+            <div
+              style={{
+                width: '200px',
+                height: '200px',
+                borderRadius: '50%',
+                background: building.style.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto',
+                border: `4px solid ${building.style.color}`,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+              }}
+            >
+              <span style={{ fontSize: '4rem', fontWeight: 'bold', color: 'white' }}>
+                {building.artist_name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Artist Name */}
         <h2 style={{
