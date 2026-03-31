@@ -26,7 +26,7 @@ export default function ArtistCityView() {
     const fetchArtists = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${apiUrl}/artists?page=1&limit=200`);
+        const response = await fetch(`${apiUrl}/city?page=1&limit=200`);
         if (!response.ok) throw new Error('Failed to fetch artists');
         const data: CityResponse = await response.json();
         setArtists(data.artists);
