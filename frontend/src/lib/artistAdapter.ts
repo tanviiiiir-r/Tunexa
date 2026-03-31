@@ -210,3 +210,15 @@ const maxListeners = 10000000;
 export function calculateLitPercentage(listeners: number): number {
   return Math.min(0.95, 0.2 + (listeners / maxListeners) * 0.75);
 }
+
+// Stub for tierFromLevel - returns default tier since Tunexa doesn't have XP system
+export function tierFromLevel(level: number): { name: string; color: string } {
+  const tiers = [
+    { name: 'bronze', color: '#cd7f32' },
+    { name: 'silver', color: '#c0c0c0' },
+    { name: 'gold', color: '#ffd700' },
+    { name: 'platinum', color: '#e5e4e2' },
+  ];
+  const tierIndex = Math.min(Math.floor((level - 1) / 6), tiers.length - 1);
+  return tiers[tierIndex];
+}

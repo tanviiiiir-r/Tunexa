@@ -29,7 +29,7 @@ import {
   TierBaseGlow,
   TierSkyBeam,
 } from "./BuildingEffects";
-import { tierFromLevel } from "@/lib/xp";
+import { tierFromLevel } from "../../lib/artistAdapter";
 import { MiniWhiteRabbit } from "./WhiteRabbit";
 
 // Shared constants

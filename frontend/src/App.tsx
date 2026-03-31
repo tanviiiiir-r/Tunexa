@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import CityView from './components/CityView';
+import ArtistCityView from './components/ArtistCityView';
 import ShareView from './components/ShareView';
 import { apiUrl } from './config';
 
@@ -44,9 +44,9 @@ function App() {
     return <ShareView token={shareToken} />;
   }
 
-  // If showing city, render the CityView component
+  // If showing city, render the ArtistCityView component (Git City powered)
   if (showCity) {
-    return <CityView onBack={() => setShowCity(false)} />;
+    return <ArtistCityView />;
   }
 
   return (
