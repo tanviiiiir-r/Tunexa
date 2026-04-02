@@ -8,8 +8,8 @@ import type { CityBuilding } from "../../lib/artistAdapter";
 // ─── Atlas Config ──────────────────────────────────────────────
 
 const ATLAS_SIZE = 4096;
-const CELL_W = 256;
-const CELL_H = 40;
+const CELL_W = 320;  // Wider cells for longer names
+const CELL_H = 60;   // Taller cells for bigger text
 const ATLAS_COLS = ATLAS_SIZE / CELL_W; // 16
 const ATLAS_ROWS = Math.floor(ATLAS_SIZE / CELL_H); // 102
 const MAX_LABELS = ATLAS_COLS * ATLAS_ROWS; // 1632
@@ -46,13 +46,13 @@ function createTextAtlas(buildings: CityBuilding[]): THREE.CanvasTexture {
         : b.login.toUpperCase();
     const text = `@${login}`;
 
-    // Background pill
-    ctx.font = 'bold 22px "Silkscreen", monospace';
+    // Background pill - larger text for musician names
+    ctx.font = 'bold 32px "Silkscreen", monospace';
     const textWidth = ctx.measureText(text).width;
-    const padX = 12;
-    const padY = 5;
+    const padX = 16;
+    const padY = 8;
     const bgW = textWidth + padX * 2;
-    const bgH = 26 + padY * 2;
+    const bgH = 36 + padY * 2;
     const bgX = cx - bgW / 2;
     const bgY = cy - bgH / 2;
     ctx.fillStyle = "rgba(10, 10, 14, 0.65)";

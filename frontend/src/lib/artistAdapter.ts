@@ -117,25 +117,26 @@ function calculateDimensions(artist: TunexaArtist): {
   sideWindowsPerFloor: number;
 } {
   const maxListeners = 10000000;
-  const listenerNorm = Math.min(artist.lastfm_listeners / maxListeners, 3);
+  const listenerNorm = Math.min(artist.lastfm_listeners / maxListeners, 1);
   const trackNorm = Math.min(artist.track_count / 1000, 1);
 
-  // Height: 35-200 range based on listeners
-  const heightScore = Math.pow(listenerNorm, 0.6) * 0.7 + Math.pow(trackNorm, 0.5) * 0.3;
-  const buildingHeight = 35 + heightScore * 165;
+  // Height: 20-200 range (more dramatic difference)
+  // Use exponential curve for more dramatic height differences
+  const heightScore = Math.pow(listenerNorm, 0.5); // Square root for more spread at lower values
+  const buildingHeight = 20 + heightScore * 180;
 
-  // Width: 12-39 range based on tracks
-  const widthScore = Math.pow(trackNorm, 0.5) * 21;
-  const jitter = (Math.random() - 0.5) * 4;
-  const buildingWidth = Math.round(14 + widthScore + jitter);
+  // Width: 8-50 range (more dramatic difference)
+  const widthScore = Math.pow(trackNorm, 0.6) * 35;
+  const jitter = (Math.random() - 0.5) * 6;
+  const buildingWidth = Math.max(8, Math.round(15 + widthScore + jitter));
 
-  // Depth: 0.8-1.2x width
-  const depthRatio = 0.8 + Math.random() * 0.4;
+  // Depth: 0.7-1.3x width (more variation)
+  const depthRatio = 0.7 + Math.random() * 0.6;
   const buildingDepth = buildingWidth * depthRatio;
 
-  const floors = Math.max(3, Math.floor(buildingHeight / 12));
-  const windowsPerFloor = Math.max(3, Math.floor(buildingWidth / 6));
-  const sideWindowsPerFloor = Math.max(2, Math.floor((buildingWidth * depthRatio) / 6));
+  const floors = Math.max(3, Math.floor(buildingHeight / 10));
+  const windowsPerFloor = Math.max(2, Math.floor(buildingWidth / 8));
+  const sideWindowsPerFloor = Math.max(2, Math.floor((buildingWidth * depthRatio) / 8));
 
   return {
     width: buildingWidth,

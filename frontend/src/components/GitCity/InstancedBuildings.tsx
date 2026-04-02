@@ -6,6 +6,11 @@ import * as THREE from "three";
 import type { CityBuilding } from "../../lib/artistAdapter";
 import type { BuildingColors } from "./TunexaCityCanvas";
 
+// Stub for wasAdPointerConsumed - ads not implemented in Tunexa
+function wasAdPointerConsumed(): boolean {
+  return false;
+}
+
 // ─── Atlas Constants (must match Building3D.tsx) ───────────────
 const ATLAS_SIZE = 2048;
 const ATLAS_CELL = 8;
