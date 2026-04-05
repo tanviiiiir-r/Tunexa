@@ -132,6 +132,18 @@ function Ground({ color }: { color: string }) {
   );
 }
 
+// ─── Camera Animation Helpers ────────────────────────────────
+
+// Smooth ease-out for cinematic feel
+function smoothEase(t: number): number {
+  return 1 - Math.pow(1 - t, 5);
+}
+
+// Adaptive duration based on distance
+function getAnimationDuration(distance: number): number {
+  return Math.min(2.0, Math.max(0.8, distance / 800));
+}
+
 // ─── Orbit Scene ─────────────────────────────────────────────
 
 function OrbitScene({
@@ -146,6 +158,16 @@ function OrbitScene({
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
 
+  // Animation refs
+  const startPos = useRef(new THREE.Vector3());
+  const startLook = useRef(new THREE.Vector3());
+  const endPos = useRef(new THREE.Vector3());
+  const endLook = useRef(new THREE.Vector3());
+  const progress = useRef(1);
+  const active = useRef(false);
+  const duration = useRef(1.0);
+  const lastFocused = useRef<string | null>(null);
+
   useEffect(() => {
     if (!focusedBuilding) {
       if (controlsRef.current) {
@@ -157,15 +179,44 @@ function OrbitScene({
     const b = buildings.find(b => b.login === focusedBuilding);
     if (!b || !controlsRef.current) return;
 
-    // Focus on building
+    // Capture current camera state as start
+    startPos.current.copy(camera.position);
+    startLook.current.copy(controlsRef.current.target);
+
+    // Calculate target position
     const targetPos = new THREE.Vector3(b.position[0], b.height * 0.5, b.position[2]);
     const offset = new THREE.Vector3(150, 100, 150);
-    const endPos = targetPos.clone().add(offset);
+    endPos.current.copy(targetPos).add(offset);
+    endLook.current.copy(targetPos);
 
-    controlsRef.current.target.copy(targetPos);
-    controlsRef.current.object.position.copy(endPos);
+    // Calculate adaptive duration based on travel distance
+    const travelDist = startPos.current.distanceTo(endPos.current);
+    duration.current = getAnimationDuration(travelDist);
+    progress.current = 0;
+    active.current = true;
+
     controlsRef.current.autoRotate = false;
+    lastFocused.current = focusedBuilding;
   }, [focusedBuilding, buildings, camera]);
+
+  // Animation frame
+  useFrame((_, delta) => {
+    if (!active.current || progress.current >= 1) return;
+
+    progress.current = Math.min(1, progress.current + delta / duration.current);
+    const t = smoothEase(progress.current);
+
+    camera.position.lerpVectors(startPos.current, endPos.current, t);
+
+    if (controlsRef.current) {
+      controlsRef.current.target.lerpVectors(startLook.current, endLook.current, t);
+      controlsRef.current.update();
+    }
+
+    if (progress.current >= 1) {
+      active.current = false;
+    }
+  });
 
   return (
     <OrbitControls
