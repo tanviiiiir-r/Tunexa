@@ -70,23 +70,24 @@ function spiralCoord(index: number): [number, number] {
   return [x, y];
 }
 
-// Generate consistent position for artist
+// Generate consistent position for artist (matches Git City exactly)
 function getArtistPosition(index: number): { x: number; z: number } {
   if (positionCache.has(String(index))) {
     return positionCache.get(String(index))!;
   }
 
-  const BLOCK_SIZE = 3;
-  const LOT_W = 35;
-  const LOT_D = 35;
-  const ALLEY_W = 4;
-  const STREET_W = 15;
-  const HORIZONTAL_SPACING = LOT_W + ALLEY_W;
-  const VERTICAL_SPACING = LOT_D + ALLEY_W;
-  const BLOCK_FOOTPRINT_X = BLOCK_SIZE * HORIZONTAL_SPACING;
-  const BLOCK_FOOTPRINT_Z = BLOCK_SIZE * VERTICAL_SPACING;
+  // Match Git City constants exactly
+  const BLOCK_SIZE = 4;      // 4x4 buildings per city block
+  const LOT_W = 38;          // lot width (X axis)
+  const LOT_D = 32;          // lot depth (Z axis)
+  const ALLEY_W = 3;         // narrow gap between buildings within a block
+  const STREET_W = 12;       // street between blocks
 
-  const buildingsPerBlock = BLOCK_SIZE * BLOCK_SIZE;
+  // Calculate block footprint (matches Git City github.ts)
+  const BLOCK_FOOTPRINT_X = BLOCK_SIZE * LOT_W + (BLOCK_SIZE - 1) * ALLEY_W; // 4*38 + 3*3 = 161
+  const BLOCK_FOOTPRINT_Z = BLOCK_SIZE * LOT_D + (BLOCK_SIZE - 1) * ALLEY_W; // 4*32 + 3*3 = 137
+
+  const buildingsPerBlock = BLOCK_SIZE * BLOCK_SIZE; // 16
   const blockIndex = Math.floor(index / buildingsPerBlock);
   const [blockX, blockZ] = spiralCoord(blockIndex);
 
@@ -94,11 +95,12 @@ function getArtistPosition(index: number): { x: number; z: number } {
   const localRow = Math.floor(localIndex / BLOCK_SIZE);
   const localCol = localIndex % BLOCK_SIZE;
 
+  // Calculate position (matches Git City github.ts lines 491-492)
   const centerOffset = (BLOCK_SIZE - 1) / 2;
   const posX = blockX * (BLOCK_FOOTPRINT_X + STREET_W) +
-               (localCol - centerOffset) * HORIZONTAL_SPACING;
+               (localCol - centerOffset) * (LOT_W + ALLEY_W);
   const posZ = blockZ * (BLOCK_FOOTPRINT_Z + STREET_W) +
-               (localRow - centerOffset) * VERTICAL_SPACING;
+               (localRow - centerOffset) * (LOT_D + ALLEY_W);
 
   // Small jitter for organic feel
   const jitter = () => (Math.random() - 0.5) * 8;

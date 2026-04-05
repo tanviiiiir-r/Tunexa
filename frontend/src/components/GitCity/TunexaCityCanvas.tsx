@@ -166,19 +166,22 @@ function OrbitScene({
   const progress = useRef(1);
   const active = useRef(false);
   const duration = useRef(1.0);
-  const lastFocused = useRef<string | null>(null);
+  const prevFocusedRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Handle clearing focus - restore auto-rotate
     if (!focusedBuilding) {
       if (controlsRef.current) {
         controlsRef.current.autoRotate = true;
       }
+      prevFocusedRef.current = null;
       return;
     }
 
     const b = buildings.find(b => b.login === focusedBuilding);
     if (!b || !controlsRef.current) return;
 
+    // Always animate when focusing on a building (even when switching)
     // Capture current camera state as start
     startPos.current.copy(camera.position);
     startLook.current.copy(controlsRef.current.target);
@@ -196,7 +199,7 @@ function OrbitScene({
     active.current = true;
 
     controlsRef.current.autoRotate = false;
-    lastFocused.current = focusedBuilding;
+    prevFocusedRef.current = focusedBuilding;
   }, [focusedBuilding, buildings, camera]);
 
   // Animation frame
