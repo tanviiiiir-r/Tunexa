@@ -202,6 +202,8 @@ function OrbitScene({
     prevFocusedRef.current = focusedBuilding;
   }, [focusedBuilding, buildings, camera]);
 
+  const { invalidate } = useThree();
+
   // Animation frame
   useFrame((_, delta) => {
     if (!active.current || progress.current >= 1) return;
@@ -215,6 +217,9 @@ function OrbitScene({
       controlsRef.current.target.lerpVectors(startLook.current, endLook.current, t);
       controlsRef.current.update();
     }
+
+    // Trigger re-render for frameloop="demand"
+    invalidate();
 
     if (progress.current >= 1) {
       active.current = false;

@@ -528,13 +528,23 @@ export default memo(function InstancedBuildings({
     const raycastInstance = (clientX: number, clientY: number): number | null => {
       const mesh = meshRef.current;
       if (!mesh) return null;
+
+      // Update matrix world for accurate raycasting
+      mesh.updateMatrixWorld();
+
       screenToNDC(clientX, clientY);
       raycasterRef.current.setFromCamera(pointerNDC.current, camera);
+
+      // Set raycaster params for instanced mesh
+      raycasterRef.current.params.Mesh = { threshold: 0.1 };
+
       const hits: THREE.Intersection[] = [];
       mesh.raycast(raycasterRef.current, hits);
       if (hits.length > 0) {
         hits.sort((a, b) => a.distance - b.distance);
-        if (hits[0].instanceId !== undefined) return hits[0].instanceId;
+        if (hits[0].instanceId !== undefined && hits[0].instanceId !== null) {
+          return hits[0].instanceId;
+        }
       }
       return null;
     };
