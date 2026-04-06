@@ -6,3 +6,4 @@
 **/iterm2-daemon-1.socket
 **/.config/iterm2/**/*.socket
 **/.config/**/*.socket
+.iterm2
