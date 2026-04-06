@@ -169,10 +169,25 @@ function OrbitScene({
   const prevFocusedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Handle clearing focus - restore auto-rotate
+    // Handle clearing focus - animate back to overview position
     if (!focusedBuilding) {
       if (controlsRef.current) {
         controlsRef.current.autoRotate = true;
+
+        // Animate back to overview position if we were focused
+        if (prevFocusedRef.current) {
+          startPos.current.copy(camera.position);
+          startLook.current.copy(controlsRef.current.target);
+
+          // Reset to overview position
+          endPos.current.set(-1200, 800, -1500);
+          endLook.current.set(0, 0, 0);
+
+          const travelDist = startPos.current.distanceTo(endPos.current);
+          duration.current = getAnimationDuration(travelDist);
+          progress.current = 0;
+          active.current = true;
+        }
       }
       prevFocusedRef.current = null;
       return;
