@@ -1,13 +1,12 @@
 // Adapter: Transform Tunexa Artist data → Git City CityBuilding format
+// Uses full district-based city layout (matches Git City)
+
+import { generateCityLayout, type LayoutArtist } from './cityLayout';
 
 export interface TunexaArtist {
   id: string;
   name: string;
   genre: string;
-  height?: number;
-  width?: number;
-  city_x?: number;
-  city_z?: number;
   image_url: string | null;
   lastfm_listeners: number;
   track_count: number;
@@ -51,131 +50,34 @@ export interface CityBuilding {
   litPercentage: number;
 }
 
-// Position cache for consistent layout
-const positionCache = new Map<string, { x: number; z: number }>();
+// Convert array of artists to buildings using full Git City layout
+export function artistsToBuildings(artists: TunexaArtist[]): CityBuilding[] {
+  // Map TunexaArtist to LayoutArtist
+  const layoutArtists: LayoutArtist[] = artists.map(a => ({
+    id: a.id,
+    name: a.name,
+    genre: a.genre,
+    sub_genres: a.sub_genres,
+    lastfm_listeners: a.lastfm_listeners,
+    track_count: a.track_count,
+    image_url: a.image_url,
+    claimed: a.claimed,
+  }));
 
-// Spiral coordinate generator (from Git City)
-function spiralCoord(index: number): [number, number] {
-  if (index === 0) return [0, 0];
-  let x = 0, y = 0, dx = 1, dy = 0;
-  let segLen = 1, segPassed = 0, turns = 0;
-  for (let i = 0; i < index; i++) {
-    x += dx; y += dy; segPassed++;
-    if (segPassed === segLen) {
-      segPassed = 0;
-      const tmp = dx; dx = -dy; dy = tmp;
-      turns++; if (turns % 2 === 0) segLen++;
-    }
-  }
-  return [x, y];
-}
+  // Generate full city layout with districts
+  const { buildings } = generateCityLayout(layoutArtists);
 
-// Generate consistent position for artist (matches Git City exactly)
-function getArtistPosition(index: number): { x: number; z: number } {
-  if (positionCache.has(String(index))) {
-    return positionCache.get(String(index))!;
-  }
-
-  // Match Git City constants exactly
-  const BLOCK_SIZE = 4;      // 4x4 buildings per city block
-  const LOT_W = 38;          // lot width (X axis)
-  const LOT_D = 32;          // lot depth (Z axis)
-  const ALLEY_W = 3;         // narrow gap between buildings within a block
-  const STREET_W = 12;       // street between blocks
-
-  // Calculate block footprint (matches Git City github.ts)
-  const BLOCK_FOOTPRINT_X = BLOCK_SIZE * LOT_W + (BLOCK_SIZE - 1) * ALLEY_W; // 4*38 + 3*3 = 161
-  const BLOCK_FOOTPRINT_Z = BLOCK_SIZE * LOT_D + (BLOCK_SIZE - 1) * ALLEY_W; // 4*32 + 3*3 = 137
-
-  const buildingsPerBlock = BLOCK_SIZE * BLOCK_SIZE; // 16
-  const blockIndex = Math.floor(index / buildingsPerBlock);
-  const [blockX, blockZ] = spiralCoord(blockIndex);
-
-  const localIndex = index % buildingsPerBlock;
-  const localRow = Math.floor(localIndex / BLOCK_SIZE);
-  const localCol = localIndex % BLOCK_SIZE;
-
-  // Calculate position (matches Git City github.ts lines 491-492)
-  const centerOffset = (BLOCK_SIZE - 1) / 2;
-  const posX = blockX * (BLOCK_FOOTPRINT_X + STREET_W) +
-               (localCol - centerOffset) * (LOT_W + ALLEY_W);
-  const posZ = blockZ * (BLOCK_FOOTPRINT_Z + STREET_W) +
-               (localRow - centerOffset) * (LOT_D + ALLEY_W);
-
-  // Small jitter for organic feel
-  const jitter = () => (Math.random() - 0.5) * 8;
-  const pos = { x: posX + jitter(), z: posZ + jitter() };
-  positionCache.set(String(index), pos);
-  return pos;
-}
-
-// Calculate building dimensions from artist metrics
-function calculateDimensions(artist: TunexaArtist): {
-  width: number;
-  height: number;
-  depth: number;
-  floors: number;
-  windowsPerFloor: number;
-  sideWindowsPerFloor: number;
-} {
-  const maxListeners = 10000000;
-  const listenerNorm = Math.min(artist.lastfm_listeners / maxListeners, 1);
-  const trackNorm = Math.min(artist.track_count / 1000, 1);
-
-  // Height: 20-200 range (more dramatic difference)
-  // Use exponential curve for more dramatic height differences
-  const heightScore = Math.pow(listenerNorm, 0.5); // Square root for more spread at lower values
-  const buildingHeight = 20 + heightScore * 180;
-
-  // Width: 8-50 range (more dramatic difference)
-  const widthScore = Math.pow(trackNorm, 0.6) * 35;
-  const jitter = (Math.random() - 0.5) * 6;
-  const buildingWidth = Math.max(8, Math.round(15 + widthScore + jitter));
-
-  // Depth: 0.7-1.3x width (more variation)
-  const depthRatio = 0.7 + Math.random() * 0.6;
-  const buildingDepth = buildingWidth * depthRatio;
-
-  const floors = Math.max(3, Math.floor(buildingHeight / 10));
-  const windowsPerFloor = Math.max(2, Math.floor(buildingWidth / 8));
-  const sideWindowsPerFloor = Math.max(2, Math.floor((buildingWidth * depthRatio) / 8));
-
-  return {
-    width: buildingWidth,
-    height: buildingHeight,
-    depth: buildingDepth,
-    floors,
-    windowsPerFloor,
-    sideWindowsPerFloor,
-  };
-}
-
-// Convert Tunexa artist to Git City building
-export function artistToBuilding(artist: TunexaArtist, index: number): CityBuilding {
-  const pos = getArtistPosition(index);
-  const dims = calculateDimensions(artist);
-
-  // Map genre to district
-  const genreMap: Record<string, string> = {
-    'pop': 'pop',
-    'rock': 'rock',
-    'hip-hop': 'hip-hop',
-    'electronic': 'electronic',
-    'r&b': 'r&b',
-    'indie': 'indie',
-  };
-  const district = genreMap[artist.genre?.toLowerCase()] || 'other';
-
-  return {
-    login: artist.name,
-    rank: index + 1,
-    contributions: artist.lastfm_listeners,
-    total_stars: artist.track_count,
-    public_repos: artist.track_count,
-    name: artist.name,
-    avatar_url: artist.image_url,
-    primary_language: artist.genre,
-    claimed: artist.claimed || false,
+  // Map LayoutBuilding to CityBuilding (compatible with Git City components)
+  return buildings.map(b => ({
+    login: b.login,
+    rank: b.rank,
+    contributions: b.contributions,
+    total_stars: b.total_stars,
+    public_repos: b.total_stars, // Same as total_stars for artists
+    name: b.login,
+    avatar_url: b.avatar_url,
+    primary_language: b.primary_language,
+    claimed: b.claimed,
     owned_items: [],
     achievements: [],
     kudos_count: 0,
@@ -188,23 +90,17 @@ export function artistToBuilding(artist: TunexaArtist, index: number): CityBuild
     rabbit_completed: false,
     xp_total: 0,
     xp_level: 1,
-    district,
+    district: b.district,
     district_chosen: true,
-    position: [pos.x, 0, pos.z],
-    width: dims.width,
-    depth: dims.depth,
-    height: dims.height,
-    floors: dims.floors,
-    windowsPerFloor: dims.windowsPerFloor,
-    sideWindowsPerFloor: dims.sideWindowsPerFloor,
-    litPercentage: Math.min(0.95, 0.2 + (artist.lastfm_listeners / maxListeners) * 0.75),
-  };
-}
-
-// Convert array of artists to buildings
-export function artistsToBuildings(artists: TunexaArtist[]): CityBuilding[] {
-  positionCache.clear();
-  return artists.map((artist, index) => artistToBuilding(artist, index));
+    position: b.position,
+    width: b.width,
+    depth: b.depth,
+    height: b.height,
+    floors: b.floors,
+    windowsPerFloor: b.windowsPerFloor,
+    sideWindowsPerFloor: b.sideWindowsPerFloor,
+    litPercentage: b.litPercentage,
+  }));
 }
 
 // Calculate lit percentage based on popularity
@@ -225,3 +121,6 @@ export function tierFromLevel(level: number): { name: string; color: string } {
   const tierIndex = Math.min(Math.floor((level - 1) / 6), tiers.length - 1);
   return tiers[tierIndex];
 }
+
+// Re-export types for convenience
+export type { LayoutArtist };
