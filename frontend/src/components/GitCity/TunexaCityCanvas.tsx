@@ -187,6 +187,7 @@ function OrbitScene({
           duration.current = getAnimationDuration(travelDist);
           progress.current = 0;
           active.current = true;
+          invalidate(); // Kickstart animation loop
         }
       }
       prevFocusedRef.current = null;
@@ -215,6 +216,7 @@ function OrbitScene({
 
     controlsRef.current.autoRotate = false;
     prevFocusedRef.current = focusedBuilding;
+    invalidate(); // Kickstart animation loop
   }, [focusedBuilding, buildings, camera]);
 
   const { invalidate } = useThree();
