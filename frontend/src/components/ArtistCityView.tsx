@@ -63,7 +63,7 @@ export default function ArtistCityView() {
         height: '100vh',
         background: '#0a0a1a',
         color: '#c8e64a',
-        fontFamily: "'VT323', monospace",
+        fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
         fontSize: '1.5rem'
       }}>
         Loading Music City...
@@ -80,7 +80,7 @@ export default function ArtistCityView() {
         height: '100vh',
         background: '#0a0a1a',
         color: '#ff6b6b',
-        fontFamily: "'VT323', monospace",
+        fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
         fontSize: '1.5rem'
       }}>
         Error: {error}
@@ -99,7 +99,7 @@ export default function ArtistCityView() {
         background: 'rgba(10, 14, 24, 0.9)',
         padding: '1rem',
         border: '2px solid #2a3a4a',
-        fontFamily: "'VT323', monospace",
+        fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
         fontSize: '1rem',
       }}>
         <div style={{ marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c8e64a' }}>
@@ -114,7 +114,7 @@ export default function ArtistCityView() {
               width: '100%',
               padding: '0.4rem 0.75rem',
               marginBottom: '0.25rem',
-              fontFamily: "'VT323', monospace",
+              fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
               fontSize: '1rem',
               cursor: 'pointer',
               background: currentTheme.name === theme.name ? theme.building.accent : '#1a1f28',
@@ -170,7 +170,7 @@ function ArtistPanel({ building, onClose, theme }: ArtistPanelProps) {
       border: `2px solid ${theme.building.accent}`,
       padding: '1.5rem',
       color: '#e0e0e0',
-      fontFamily: "'VT323', monospace",
+      fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
       zIndex: 100,
       boxShadow: '4px 4px 0 0 rgba(0,0,0,0.5)',
     }}>
