@@ -214,19 +214,21 @@ function gridToWorld(gx: number, gz: number): [number, number] {
 
 // ─── Building Dimension Calculations ───────────────────────────
 
-const MAX_BUILDING_HEIGHT = 600;
-const MIN_BUILDING_HEIGHT = 35;
+const MAX_BUILDING_HEIGHT = 80;
+const MIN_BUILDING_HEIGHT = 12;
 const HEIGHT_RANGE = MAX_BUILDING_HEIGHT - MIN_BUILDING_HEIGHT;
 
 function calcHeight(listeners: number, trackCount: number, maxListeners: number): { height: number; composite: number } {
-  const maxL = Math.min(maxListeners, 10_000_000);
-  const listenerNorm = Math.min(listeners / Math.max(1, maxL), 3);
-  const trackNorm = Math.min(trackCount / 1000, 1);
+  // Cap maxListeners to reduce height differences between popular and niche artists
+  const maxL = Math.min(maxListeners, 5_000_000);
+  // Use log scale for more even distribution
+  const listenerNorm = Math.min(Math.log10(listeners + 1) / Math.log10(maxL + 1), 1);
+  const trackNorm = Math.min(trackCount / 500, 1);
 
-  const lScore = Math.pow(Math.min(listenerNorm, 3), 0.55);
-  const tScore = Math.pow(trackNorm, 0.45);
+  const lScore = listenerNorm;
+  const tScore = Math.pow(trackNorm, 0.5);
 
-  const composite = lScore * 0.7 + tScore * 0.3;
+  const composite = lScore * 0.6 + tScore * 0.4;
   const height = Math.min(MAX_BUILDING_HEIGHT, MIN_BUILDING_HEIGHT + composite * HEIGHT_RANGE);
 
   return { height, composite };
