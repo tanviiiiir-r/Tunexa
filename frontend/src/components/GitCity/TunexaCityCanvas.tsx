@@ -167,6 +167,7 @@ function OrbitScene({
   const active = useRef(false);
   const duration = useRef(1.0);
   const prevFocusedRef = useRef<string | null>(null);
+  const { invalidate } = useThree();
 
   useEffect(() => {
     // Handle clearing focus - animate back to overview position
@@ -217,9 +218,7 @@ function OrbitScene({
     controlsRef.current.autoRotate = false;
     prevFocusedRef.current = focusedBuilding;
     invalidate(); // Kickstart animation loop
-  }, [focusedBuilding, buildings, camera]);
-
-  const { invalidate } = useThree();
+  }, [focusedBuilding, buildings, camera, invalidate]);
 
   // Animation frame
   useFrame((_, delta) => {
