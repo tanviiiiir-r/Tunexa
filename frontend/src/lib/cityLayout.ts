@@ -214,21 +214,22 @@ function gridToWorld(gx: number, gz: number): [number, number] {
 
 // ─── Building Dimension Calculations ───────────────────────────
 
-const MAX_BUILDING_HEIGHT = 80;
-const MIN_BUILDING_HEIGHT = 12;
+const MAX_BUILDING_HEIGHT = 220;
+const MIN_BUILDING_HEIGHT = 25;
 const HEIGHT_RANGE = MAX_BUILDING_HEIGHT - MIN_BUILDING_HEIGHT;
 
 function calcHeight(listeners: number, trackCount: number, maxListeners: number): { height: number; composite: number } {
-  // Cap maxListeners to reduce height differences between popular and niche artists
-  const maxL = Math.min(maxListeners, 5_000_000);
-  // Use log scale for more even distribution
-  const listenerNorm = Math.min(Math.log10(listeners + 1) / Math.log10(maxL + 1), 1);
-  const trackNorm = Math.min(trackCount / 500, 1);
+  // Cap maxListeners for normalization
+  const maxL = Math.min(maxListeners, 10_000_000);
+  // Linear scale with cap for better height differentiation
+  const listenerNorm = Math.min(listeners / Math.max(1, maxL), 1.2);
+  const trackNorm = Math.min(trackCount / 1000, 1);
 
-  const lScore = listenerNorm;
-  const tScore = Math.pow(trackNorm, 0.5);
+  // Use power functions to create more contrast
+  const lScore = Math.pow(listenerNorm, 0.45);
+  const tScore = Math.pow(trackNorm, 0.4);
 
-  const composite = lScore * 0.6 + tScore * 0.4;
+  const composite = lScore * 0.65 + tScore * 0.35;
   const height = Math.min(MAX_BUILDING_HEIGHT, MIN_BUILDING_HEIGHT + composite * HEIGHT_RANGE);
 
   return { height, composite };
