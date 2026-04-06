@@ -35,7 +35,7 @@ class CityResponse(BaseModel):
 @router.get("/city", response_model=CityResponse)
 async def get_city(
     page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(500, ge=1, le=1000, description="Items per page"),
+    limit: int = Query(500, ge=1, le=10000, description="Items per page"),
     genre: Optional[str] = Query(None, description="Filter by genre")
 ):
     """

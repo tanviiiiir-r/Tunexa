@@ -47,7 +47,7 @@ export const THEMES: CityTheme[] = [
       [0, "#0a0514"], [0.15, "#120924"], [0.30, "#1a1238"], [0.45, "#221a4c"],
       [0.55, "#2a2058"], [0.65, "#221a4c"], [0.80, "#151030"], [1, "#0a0818"],
     ],
-    fogColor: "#1a1430", fogNear: 400, fogFar: 6000,
+    fogColor: "#1a1430", fogNear: 800, fogFar: 10000,
     ambientColor: "#5040a0", ambientIntensity: 0.55,
     sunColor: "#8060d0", sunIntensity: 0.65, sunPos: [300, 120, -200],
     fillColor: "#403080", fillIntensity: 0.3, fillPos: [-200, 60, 200],
@@ -67,7 +67,7 @@ export const THEMES: CityTheme[] = [
       [0.52, "#280060"], [0.60, "#1e0048"], [0.75, "#120030"], [0.90, "#080018"],
       [1, "#040008"],
     ],
-    fogColor: "#120028", fogNear: 600, fogFar: 6000,
+    fogColor: "#120028", fogNear: 800, fogFar: 10000,
     ambientColor: "#602080", ambientIntensity: 0.6,
     sunColor: "#ff00aa", sunIntensity: 0.85, sunPos: [300, 100, -200],
     fillColor: "#00ff88", fillIntensity: 0.4, fillPos: [-250, 60, 200],
@@ -232,7 +232,7 @@ function OrbitScene({
       enablePan={true}
       enableZoom={true}
       enableRotate={true}
-      maxDistance={4000}
+      maxDistance={8000}
       minDistance={50}
       enableDamping={true}
       dampingFactor={0.05}
@@ -266,7 +266,7 @@ export default function TunexaCityCanvas({
 
   return (
     <Canvas
-      camera={{ position: [-800, 600, -1000], fov: 60, near: 0.5, far: 12000 }}
+      camera={{ position: [-1200, 800, -1500], fov: 60, near: 0.5, far: 20000 }}
       style={{ background: t.fogColor }}
       dpr={dpr}
       frameloop="demand"

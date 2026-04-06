@@ -201,6 +201,9 @@ const MAX_RISE_TOTAL = 4; // cap total stagger to 4s regardless of building coun
 // surviving component remounts caused by Next.js navigation.
 let hasPlayedRiseGlobal = false;
 
+// Threshold for skipping rise animation - large datasets cause performance issues
+const RISE_ANIMATION_THRESHOLD = 2000;
+
 export default memo(function InstancedBuildings({
   buildings,
   colors,
@@ -367,13 +370,17 @@ export default memo(function InstancedBuildings({
     mesh.geometry.setAttribute("aTint", tintAttr);
     mesh.geometry.setAttribute("aLive", liveAttr);
 
-    if (hasPlayedRiseGlobal) {
-      // Skip rise animation on return visits / subsequent updates
+    // Skip rise animation for large datasets to prevent performance issues
+    const shouldSkipRise = count > RISE_ANIMATION_THRESHOLD;
+
+    if (hasPlayedRiseGlobal || shouldSkipRise) {
+      // Skip rise animation on return visits / subsequent updates / large datasets
       // Show all buildings at full height immediately
       for (let i = 0; i < count; i++) riseData[i] = 1;
       riseAttr.needsUpdate = true;
       riseInitialized.current = true;
       risingRef.current = [];
+      hasPlayedRiseGlobal = true; // Mark as played to skip on future navigation
     } else {
       // First mount this session: play the staggered rise animation
       hasPlayedRiseGlobal = true;
