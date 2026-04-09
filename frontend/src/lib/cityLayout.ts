@@ -8,8 +8,8 @@ import * as THREE from 'three';
 const BLOCK_SIZE = 4;     // 4x4 buildings per city block
 const LOT_W = 38;         // lot width (X axis)
 const LOT_D = 32;         // lot depth (Z axis)
-const ALLEY_W = 3;        // narrow gap between buildings within a block
-const STREET_W = 12;      // street between blocks
+const ALLEY_W = 8;        // wider gap between buildings within a block (was 3)
+const STREET_W = 25;      // wider street between blocks (was 12)
 
 // Derived: total block footprint
 const BLOCK_FOOTPRINT_X = BLOCK_SIZE * LOT_W + (BLOCK_SIZE - 1) * ALLEY_W; // 161
@@ -214,23 +214,28 @@ function gridToWorld(gx: number, gz: number): [number, number] {
 
 // ─── Building Dimension Calculations ───────────────────────────
 
-const MAX_BUILDING_HEIGHT = 220;
-const MIN_BUILDING_HEIGHT = 25;
+const MAX_BUILDING_HEIGHT = 600;  // Taller skyscrapers (was 220)
+const MIN_BUILDING_HEIGHT = 15;   // Shorter small buildings (was 25)
 const HEIGHT_RANGE = MAX_BUILDING_HEIGHT - MIN_BUILDING_HEIGHT;
 
 function calcHeight(listeners: number, trackCount: number, maxListeners: number): { height: number; composite: number } {
   // Cap maxListeners for normalization
   const maxL = Math.min(maxListeners, 10_000_000);
-  // Linear scale with cap for better height differentiation
-  const listenerNorm = Math.min(listeners / Math.max(1, maxL), 1.2);
-  const trackNorm = Math.min(trackCount / 1000, 1);
 
-  // Use power functions to create more contrast
-  const lScore = Math.pow(listenerNorm, 0.45);
-  const tScore = Math.pow(trackNorm, 0.4);
+  // More aggressive scaling - popular artists get much taller buildings
+  const listenerNorm = Math.min(listeners / Math.max(1, maxL), 2.0);
+  const trackNorm = Math.min(trackCount / 500, 1.5);
 
-  const composite = lScore * 0.65 + tScore * 0.35;
-  const height = Math.min(MAX_BUILDING_HEIGHT, MIN_BUILDING_HEIGHT + composite * HEIGHT_RANGE);
+  // Power functions with lower exponent = more dramatic differences
+  // Small artists: 15-50m, Medium: 50-200m, Popular: 200-600m
+  const lScore = Math.pow(listenerNorm, 0.25); // Lower exponent = more contrast
+  const tScore = Math.pow(trackNorm, 0.3);
+
+  // Add some randomness for variety within same popularity tier
+  const varietyFactor = 0.85 + Math.random() * 0.3; // 0.85 - 1.15
+
+  const composite = lScore * 0.7 + tScore * 0.3;
+  const height = Math.min(MAX_BUILDING_HEIGHT, MIN_BUILDING_HEIGHT + composite * HEIGHT_RANGE * varietyFactor);
 
   return { height, composite };
 }

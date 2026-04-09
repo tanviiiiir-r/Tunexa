@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useMemo, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import TunexaCityScene from "./TunexaCityScene";
 import type { FocusInfo } from "./TunexaCityScene";
@@ -40,14 +40,15 @@ interface CityTheme {
 }
 
 export const THEMES: CityTheme[] = [
-  // 0 – Night (Deep blue-purple, different from Git City's Midnight)
+  // 0 – Night (Deep blue-purple)
   {
     name: "Night",
     sky: [
       [0, "#0a0514"], [0.15, "#120924"], [0.30, "#1a1238"], [0.45, "#221a4c"],
       [0.55, "#2a2058"], [0.65, "#221a4c"], [0.80, "#151030"], [1, "#0a0818"],
     ],
-    fogColor: "#1a1430", fogNear: 800, fogFar: 10000,
+    // Exponential fog for distance fading
+    fogColor: "#1a1430", fogNear: 200, fogFar: 8000,
     ambientColor: "#5040a0", ambientIntensity: 0.55,
     sunColor: "#8060d0", sunIntensity: 0.65, sunPos: [300, 120, -200],
     fillColor: "#403080", fillIntensity: 0.3, fillPos: [-200, 60, 200],
@@ -59,7 +60,7 @@ export const THEMES: CityTheme[] = [
       accent: "#ff6b9d",
     },
   },
-  // 1 – Neon (Cyberpunk style, different from Git City's Neon)
+  // 1 – Neon (Cyberpunk style)
   {
     name: "Neon",
     sky: [
@@ -67,7 +68,7 @@ export const THEMES: CityTheme[] = [
       [0.52, "#280060"], [0.60, "#1e0048"], [0.75, "#120030"], [0.90, "#080018"],
       [1, "#040008"],
     ],
-    fogColor: "#120028", fogNear: 800, fogFar: 10000,
+    fogColor: "#120028", fogNear: 200, fogFar: 8000,
     ambientColor: "#602080", ambientIntensity: 0.6,
     sunColor: "#ff00aa", sunIntensity: 0.85, sunPos: [300, 100, -200],
     fillColor: "#00ff88", fillIntensity: 0.4, fillPos: [-250, 60, 200],
@@ -82,6 +83,56 @@ export const THEMES: CityTheme[] = [
 ];
 
 export const DEFAULT_THEME = THEMES[0];
+
+// ─── Moon Component ──────────────────────────────────────────
+
+function Moon({ position, color, size = 80 }: { position: [number, number, number]; color: string; size?: number }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  // Create glow texture
+  const glowTexture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d")!;
+
+    // Create radial gradient for moon glow
+    const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(0.3, color + "80"); // 50% opacity
+    gradient.addColorStop(0.6, color + "20"); // 12% opacity
+    gradient.addColorStop(1, "transparent");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 128, 128);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, [color]);
+
+  return (
+    <group position={position}>
+      {/* Moon glow */}
+      <mesh ref={meshRef} renderOrder={-2}>
+        <planeGeometry args={[size * 4, size * 4]} />
+        <meshBasicMaterial
+          map={glowTexture}
+          transparent
+          opacity={0.6}
+          depthWrite={false}
+          fog={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      {/* Moon core */}
+      <mesh renderOrder={-1}>
+        <sphereGeometry args={[size * 0.3, 32, 32]} />
+        <meshBasicMaterial color={color} fog={false} />
+      </mesh>
+    </group>
+  );
+}
 
 // ─── Sky Dome ────────────────────────────────────────────────
 
@@ -115,8 +166,8 @@ function SkyDome({ stops }: { stops: [number, string][] }) {
   }, []);
 
   return (
-    <mesh ref={meshRef} material={mat} renderOrder={-1} onBeforeRender={onBeforeRender}>
-      <sphereGeometry args={[3500, 32, 48]} />
+    <mesh ref={meshRef} material={mat} renderOrder={-3} onBeforeRender={onBeforeRender}>
+      <sphereGeometry args={[5000, 32, 48]} />
     </mesh>
   );
 }
@@ -126,10 +177,27 @@ function SkyDome({ stops }: { stops: [number, string][] }) {
 function Ground({ color }: { color: string }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-      <planeGeometry args={[8000, 8000]} />
+      <planeGeometry args={[15000, 15000]} />
       <meshStandardMaterial color={color} />
     </mesh>
   );
+}
+
+// ─── Fog Effect (Exponential) ─────────────────────────────────
+
+function ExponentialFog({ color, density }: { color: string; density: number }) {
+  const { scene } = useThree();
+
+  useEffect(() => {
+    const oldFog = scene.fog;
+    scene.fog = new THREE.FogExp2(color, density);
+
+    return () => {
+      scene.fog = oldFog;
+    };
+  }, [scene, color, density]);
+
+  return null;
 }
 
 // ─── Camera Animation Helpers ────────────────────────────────
@@ -250,6 +318,9 @@ function OrbitScene({
       enableRotate={true}
       maxDistance={8000}
       minDistance={50}
+      // Prevent rotating underground - stay above horizon
+      maxPolarAngle={Math.PI / 2 - 0.05} // Just slightly above ground level
+      minPolarAngle={0.1} // Don't go too far above (prevent looking from underneath)
       enableDamping={true}
       dampingFactor={0.05}
       rotateSpeed={0.5}
@@ -280,6 +351,10 @@ export default function TunexaCityCanvas({
   const t = theme;
   const [dpr, setDpr] = useState(1);
 
+  // Moon position - upper left in the sky
+  const moonPosition: [number, number, number] = [-2000, 1500, -2000];
+  const moonColor = t.name === "Neon" ? "#ff00aa" : "#c8e0ff";
+
   return (
     <Canvas
       camera={{ position: [-1200, 800, -1500], fov: 60, near: 0.5, far: 20000 }}
@@ -288,14 +363,31 @@ export default function TunexaCityCanvas({
       frameloop="demand"
       gl={{ antialias: false, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.3 }}
     >
-      <fog attach="fog" args={[t.fogColor, t.fogNear, t.fogFar]} />
+      {/* Exponential fog for better distance fading */}
+      <ExponentialFog color={t.fogColor} density={0.0002} />
 
       <ambientLight intensity={t.ambientIntensity * 3} color={t.ambientColor} />
       <directionalLight position={t.sunPos} intensity={t.sunIntensity * 3.5} color={t.sunColor} />
       <directionalLight position={t.fillPos} intensity={t.fillIntensity * 3} color={t.fillColor} />
       <hemisphereLight args={[t.hemiSky, t.hemiGround, t.hemiIntensity * 3.5]} />
 
+      {/* Sky and atmosphere */}
       <SkyDome stops={t.sky} />
+
+      {/* Stars - more visible in Night theme */}
+      <Stars
+        radius={4000}
+        depth={1000}
+        count={t.name === "Night" ? 3000 : 1500}
+        factor={8}
+        saturation={t.name === "Neon" ? 1 : 0}
+        fade
+        speed={0.2}
+      />
+
+      {/* Moon */}
+      <Moon position={moonPosition} color={moonColor} size={100} />
+
       <Ground color={t.groundColor} />
 
       <TunexaCityScene
