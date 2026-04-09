@@ -108,7 +108,7 @@ export default function ArtistCityView() {
         boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
       }}>
         <div style={{ color: '#c8e64a', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: 'bold', fontSize: '12px' }}>
-          🎵 City Stats
+          🎵 City Stats v2
         </div>
         <div style={{ display: 'grid', gap: '4px', lineHeight: '1.5' }}>
           <div>DB Total: <span style={{ color: '#c8e64a', fontWeight: 600 }}>{apiTotal.toLocaleString()}</span></div>
