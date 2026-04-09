@@ -22,7 +22,7 @@ export default function ArtistCityView() {
   const [focusedBuilding, setFocusedBuilding] = useState<string | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<CityBuilding | null>(null);
 
-  // Fetch artists from Tunexa API
+  // Fetch artists from Tunexa API - Build: v3-cache-bust
   useEffect(() => {
     const fetchArtists = async () => {
       try {
