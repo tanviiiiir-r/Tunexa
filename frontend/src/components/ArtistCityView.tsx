@@ -94,28 +94,29 @@ export default function ArtistCityView() {
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       {/* Debug Stats Panel */}
       <div style={{
-        position: 'absolute',
-        top: '1rem',
-        right: '1rem',
-        zIndex: 100,
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        zIndex: 9999,
         background: 'rgba(10, 14, 24, 0.95)',
-        padding: '1rem',
+        padding: '15px',
         border: '2px solid #c8e64a',
         fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
-        fontSize: '0.9rem',
+        fontSize: '14px',
         color: '#e0e0e0',
-        minWidth: '200px',
+        minWidth: '220px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
       }}>
-        <div style={{ color: '#c8e64a', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-          Debug Stats
+        <div style={{ color: '#c8e64a', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: 'bold', fontSize: '12px' }}>
+          🎵 City Stats
         </div>
-        <div style={{ display: 'grid', gap: '0.3rem' }}>
-          <div>DB Total: <span style={{ color: '#c8e64a' }}>{apiTotal.toLocaleString()}</span></div>
-          <div>Fetched: <span style={{ color: '#c8e64a' }}>{artists.length.toLocaleString()}</span></div>
-          <div>Buildings: <span style={{ color: '#c8e64a' }}>{buildings.length.toLocaleString()}</span></div>
+        <div style={{ display: 'grid', gap: '4px', lineHeight: '1.5' }}>
+          <div>DB Total: <span style={{ color: '#c8e64a', fontWeight: 600 }}>{apiTotal.toLocaleString()}</span></div>
+          <div>Fetched: <span style={{ color: '#c8e64a', fontWeight: 600 }}>{artists.length.toLocaleString()}</span></div>
+          <div>Buildings: <span style={{ color: '#c8e64a', fontWeight: 600 }}>{buildings.length.toLocaleString()}</span></div>
           {buildings.length > 0 && (
-            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#808080' }}>
-              Ready to render ✓
+            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #333', fontSize: '11px', color: '#4ade80' }}>
+              ✅ Rendering
             </div>
           )}
         </div>
@@ -193,7 +194,7 @@ function ArtistPanel({ building, onClose, theme }: ArtistPanelProps) {
     <div style={{
       position: 'absolute',
       top: '1rem',
-      right: '1rem',
+      right: '280px',
       width: '320px',
       maxHeight: '80vh',
       overflow: 'auto',
