@@ -1,5 +1,5 @@
 // Adapter: Transform Tunexa Artist data → Git City CityBuilding format
-// Uses backend-provided positions directly for consistency
+// Applies visual scaling for dramatic effect (height variation, spacing)
 
 export interface TunexaArtist {
   id: string;
@@ -54,23 +54,53 @@ export interface CityBuilding {
   litPercentage: number;
 }
 
-// Convert API artist directly to building using backend-calculated positions
+// Visual scaling constants for dramatic effect
+const HEIGHT_SCALE = 4.0;        // Make height differences 4x more visible
+const HEIGHT_OFFSET = 30;      // Minimum height boost
+const SPACING_SCALE = 2.5;     // Wider spacing between buildings
+
+// Convert API artist to building with visual enhancement
 export function artistsToBuildings(artists: TunexaArtist[]): CityBuilding[] {
+  // Find min/max for normalization
+  const heights = artists.map(a => a.height ?? 50).filter(h => h > 0);
+  const minDbHeight = Math.min(...heights);
+  const maxDbHeight = Math.max(...heights);
+  const heightRange = maxDbHeight - minDbHeight || 1;
+
+  // Find city bounds for centering
+  const xs = artists.map(a => a.city_x ?? 0);
+  const zs = artists.map(a => a.city_z ?? 0);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minZ = Math.min(...zs);
+  const maxZ = Math.max(...zs);
+  const centerX = (minX + maxX) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+
   return artists.map((a, index) => {
-    // Use backend-calculated values (backend determines layout, spacing, heights)
-    const posX = a.city_x ?? (index % 100) * 50;
-    const posZ = a.city_z ?? Math.floor(index / 100) * 50;
-    const buildingHeight = a.height ?? 50;
-    const buildingWidth = a.width ?? 24;
-    // Calculate depth from width if not provided (typical building ratio)
-    const buildingDepth = a.depth ?? Math.max(12, buildingWidth * 0.6 + (index % 5) * 2);
+    // Scale positions for wider spacing (less saturation)
+    const rawX = (a.city_x ?? 0) - centerX;
+    const rawZ = (a.city_z ?? 0) - centerZ;
+    const posX = rawX * SPACING_SCALE;
+    const posZ = rawZ * SPACING_SCALE;
+
+    // Dramatic height scaling - normalize then apply exponential curve
+    const rawHeight = a.height ?? 50;
+    const normalizedHeight = (rawHeight - minDbHeight) / heightRange;
+    // Exponential curve: popular artists get MUCH taller
+    const curvedHeight = Math.pow(normalizedHeight, 0.4);
+    const buildingHeight = HEIGHT_OFFSET + curvedHeight * 600 * HEIGHT_SCALE;
+
+    // Width varies less dramatically
+    const buildingWidth = Math.max(15, (a.width ?? 24) * 0.6);
+    const buildingDepth = Math.max(12, buildingWidth * 0.7 + (index % 4));
 
     const floorH = 6;
     const floors = Math.max(3, Math.floor(buildingHeight / floorH));
     const windowsPerFloor = Math.max(3, Math.floor(buildingWidth / 5));
     const sideWindowsPerFloor = Math.max(3, Math.floor(buildingDepth / 5));
 
-    // Calculate lit percentage based on listeners
+    // Lit percentage based on listeners
     const listenerNorm = Math.min(a.lastfm_listeners / 10_000_000, 1);
     const litPercentage = 0.2 + listenerNorm * 0.75;
 
