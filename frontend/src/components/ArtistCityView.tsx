@@ -15,6 +15,7 @@ interface CityResponse {
 
 export default function ArtistCityView() {
   const [artists, setArtists] = useState<TunexaArtist[]>([]);
+  const [apiTotal, setApiTotal] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState(DEFAULT_THEME);
@@ -26,10 +27,11 @@ export default function ArtistCityView() {
     const fetchArtists = async () => {
       try {
         setLoading(true);
-        const response = await fetch(apiUrl('/city?page=1&limit=10000'));
+        const response = await fetch(apiUrl('/city?page=1&limit=50000'));
         if (!response.ok) throw new Error('Failed to fetch artists');
         const data: CityResponse = await response.json();
         setArtists(data.artists);
+        setApiTotal(data.total);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
@@ -90,6 +92,35 @@ export default function ArtistCityView() {
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+      {/* Debug Stats Panel */}
+      <div style={{
+        position: 'absolute',
+        top: '1rem',
+        right: '1rem',
+        zIndex: 100,
+        background: 'rgba(10, 14, 24, 0.95)',
+        padding: '1rem',
+        border: '2px solid #c8e64a',
+        fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
+        fontSize: '0.9rem',
+        color: '#e0e0e0',
+        minWidth: '200px',
+      }}>
+        <div style={{ color: '#c8e64a', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+          Debug Stats
+        </div>
+        <div style={{ display: 'grid', gap: '0.3rem' }}>
+          <div>DB Total: <span style={{ color: '#c8e64a' }}>{apiTotal.toLocaleString()}</span></div>
+          <div>Fetched: <span style={{ color: '#c8e64a' }}>{artists.length.toLocaleString()}</span></div>
+          <div>Buildings: <span style={{ color: '#c8e64a' }}>{buildings.length.toLocaleString()}</span></div>
+          {buildings.length > 0 && (
+            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#808080' }}>
+              Ready to render ✓
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Theme Selector */}
       <div style={{
         position: 'absolute',

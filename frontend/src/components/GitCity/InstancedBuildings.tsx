@@ -67,6 +67,7 @@ const fragmentShader = /* glsl */ `
   uniform float uDimOpacity;
   uniform float uDimEmissive;
   uniform float uCityEnergy;
+  uniform float uTime;
 
   varying vec2 vUv;
   varying vec3 vNormal;
@@ -114,8 +115,24 @@ const fragmentShader = /* glsl */ `
     vec3 liveBoost = vec3(1.4, 1.35, 1.2);
     wallFinal = mix(wallFinal, wallFinal * liveBoost, vLive);
 
-    // Roof: solid color with emissive, also scaled by city energy
-    vec3 roofFinal = uRoofColor * (0.4 + 1.4 * uCityEnergy);
+    // Roof: solid color with emissive and GLOWING edges
+    vec3 roofColor = uRoofColor;
+
+    // Add pulsing glow to roof edges (based on UV and time)
+    float roofGlow = 0.0;
+    if (isRoof > 0.5) {
+      // Distance from center of roof
+      vec2 roofCenter = vUv - 0.5;
+      float distFromCenter = length(roofCenter);
+      float edgeGlow = smoothstep(0.5, 0.3, distFromCenter);
+
+      // Pulsing effect
+      float pulse = 0.5 + 0.5 * sin(uTime * 2.0 + vInstanceId * 0.1);
+      roofGlow = edgeGlow * pulse * 0.4 * uCityEnergy;
+    }
+
+    // Apply roof glow (stronger emissive)
+    vec3 roofFinal = roofColor * (0.4 + 1.4 * uCityEnergy) + vec3(roofGlow);
 
     vec3 color = mix(wallFinal, roofFinal, isRoof);
 

@@ -8,8 +8,8 @@ import type { CityBuilding } from "../../lib/artistAdapter";
 // ─── Atlas Config ──────────────────────────────────────────────
 
 const ATLAS_SIZE = 4096;
-const CELL_W = 320;  // Wider cells for longer names
-const CELL_H = 60;   // Taller cells for bigger text
+const CELL_W = 400;  // Wider cells for longer names
+const CELL_H = 80;   // Taller cells for bigger GTA-style text
 const ATLAS_COLS = ATLAS_SIZE / CELL_W; // 16
 const ATLAS_ROWS = Math.floor(ATLAS_SIZE / CELL_H); // 102
 const MAX_LABELS = ATLAS_COLS * ATLAS_ROWS; // 1632
@@ -46,13 +46,13 @@ function createTextAtlas(buildings: CityBuilding[]): THREE.CanvasTexture {
         : b.login.toUpperCase();
     const text = `@${login}`;
 
-    // Background pill - larger text for musician names
-    ctx.font = 'bold 32px "Silkscreen", monospace';
+    // GTA-style bold clean font - bigger and more visible
+    ctx.font = 'bold 52px "Pricedown", "Chalet Comprime Cologne", "Montserrat", Impact, "Arial Black", sans-serif';
     const textWidth = ctx.measureText(text).width;
-    const padX = 16;
-    const padY = 8;
+    const padX = 20;
+    const padY = 12;
     const bgW = textWidth + padX * 2;
-    const bgH = 36 + padY * 2;
+    const bgH = 52 + padY * 2;
     const bgX = cx - bgW / 2;
     const bgY = cy - bgH / 2;
     ctx.fillStyle = "rgba(10, 10, 14, 0.65)";
@@ -113,8 +113,8 @@ const billboardVertex = /* glsl */ `
     vec3 right = vec3(toCamera.z, 0.0, -toCamera.x);
     vec3 up = vec3(0.0, 1.0, 0.0);
 
-    float labelW = 32.0;
-    float labelH = 5.0;
+    float labelW = 48.0;
+    float labelH = 7.0;
     vec3 vertexPos = worldPos
       + right * position.x * labelW
       + up * position.y * labelH;
