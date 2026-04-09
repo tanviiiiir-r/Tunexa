@@ -1,7 +1,5 @@
 // Adapter: Transform Tunexa Artist data → Git City CityBuilding format
-// Uses full district-based city layout (matches Git City)
-
-import { generateCityLayout, type LayoutArtist } from './cityLayout';
+// Uses backend-provided positions directly for consistency
 
 export interface TunexaArtist {
   id: string;
@@ -12,21 +10,27 @@ export interface TunexaArtist {
   track_count: number;
   sub_genres?: string[];
   claimed?: boolean;
+  // Backend-calculated layout values
+  city_x?: number;
+  city_z?: number;
+  height?: number;
+  width?: number;
+  depth?: number;
+  district?: string;
 }
 
 // Git City compatible building type
 export interface CityBuilding {
-  login: string;           // artist name (unique identifier)
+  login: string;
   rank: number;
-  contributions: number;   // mapped from lastfm_listeners
-  total_stars: number;     // mapped from track_count
-  public_repos: number;    // mapped from track_count
+  contributions: number;
+  total_stars: number;
+  public_repos: number;
   name: string | null;
   avatar_url: string | null;
-  primary_language: string | null;  // mapped from genre
+  primary_language: string | null;
   claimed: boolean;
   owned_items: string[];
-  custom_color?: string | null;
   achievements: string[];
   kudos_count: number;
   visit_count: number;
@@ -50,57 +54,60 @@ export interface CityBuilding {
   litPercentage: number;
 }
 
-// Convert array of artists to buildings using full Git City layout
+// Convert API artist directly to building using backend-calculated positions
 export function artistsToBuildings(artists: TunexaArtist[]): CityBuilding[] {
-  // Map TunexaArtist to LayoutArtist
-  const layoutArtists: LayoutArtist[] = artists.map(a => ({
-    id: a.id,
-    name: a.name,
-    genre: a.genre,
-    sub_genres: a.sub_genres,
-    lastfm_listeners: a.lastfm_listeners,
-    track_count: a.track_count,
-    image_url: a.image_url,
-    claimed: a.claimed,
-  }));
+  return artists.map((a, index) => {
+    // Use backend-calculated values (backend determines layout, spacing, heights)
+    const posX = a.city_x ?? (index % 100) * 50;
+    const posZ = a.city_z ?? Math.floor(index / 100) * 50;
+    const buildingHeight = a.height ?? 50;
+    const buildingWidth = a.width ?? 24;
+    // Calculate depth from width if not provided (typical building ratio)
+    const buildingDepth = a.depth ?? Math.max(12, buildingWidth * 0.6 + (index % 5) * 2);
 
-  // Generate full city layout with districts
-  const { buildings } = generateCityLayout(layoutArtists);
+    const floorH = 6;
+    const floors = Math.max(3, Math.floor(buildingHeight / floorH));
+    const windowsPerFloor = Math.max(3, Math.floor(buildingWidth / 5));
+    const sideWindowsPerFloor = Math.max(3, Math.floor(buildingDepth / 5));
 
-  // Map LayoutBuilding to CityBuilding (compatible with Git City components)
-  return buildings.map(b => ({
-    login: b.login,
-    rank: b.rank,
-    contributions: b.contributions,
-    total_stars: b.total_stars,
-    public_repos: b.total_stars, // Same as total_stars for artists
-    name: b.login,
-    avatar_url: b.avatar_url,
-    primary_language: b.primary_language,
-    claimed: b.claimed,
-    owned_items: [],
-    achievements: [],
-    kudos_count: 0,
-    visit_count: 0,
-    app_streak: 0,
-    raid_xp: 0,
-    current_week_contributions: 0,
-    current_week_kudos_given: 0,
-    current_week_kudos_received: 0,
-    rabbit_completed: false,
-    xp_total: 0,
-    xp_level: 1,
-    district: b.district,
-    district_chosen: true,
-    position: b.position,
-    width: b.width,
-    depth: b.depth,
-    height: b.height,
-    floors: b.floors,
-    windowsPerFloor: b.windowsPerFloor,
-    sideWindowsPerFloor: b.sideWindowsPerFloor,
-    litPercentage: b.litPercentage,
-  }));
+    // Calculate lit percentage based on listeners
+    const listenerNorm = Math.min(a.lastfm_listeners / 10_000_000, 1);
+    const litPercentage = 0.2 + listenerNorm * 0.75;
+
+    return {
+      login: a.name,
+      rank: index + 1,
+      contributions: a.lastfm_listeners,
+      total_stars: a.track_count,
+      public_repos: a.track_count,
+      name: a.name,
+      avatar_url: a.image_url,
+      primary_language: a.genre,
+      claimed: a.claimed || false,
+      owned_items: [],
+      achievements: [],
+      kudos_count: 0,
+      visit_count: 0,
+      app_streak: 0,
+      raid_xp: 0,
+      current_week_contributions: 0,
+      current_week_kudos_given: 0,
+      current_week_kudos_received: 0,
+      rabbit_completed: false,
+      xp_total: 0,
+      xp_level: 1,
+      district: a.district || a.genre,
+      district_chosen: true,
+      position: [posX, 0, posZ],
+      width: buildingWidth,
+      depth: buildingDepth,
+      height: buildingHeight,
+      floors,
+      windowsPerFloor,
+      sideWindowsPerFloor,
+      litPercentage: Math.min(0.95, litPercentage),
+    };
+  });
 }
 
 // Calculate lit percentage based on popularity
@@ -110,7 +117,7 @@ export function calculateLitPercentage(listeners: number): number {
   return Math.min(0.95, 0.2 + (listeners / maxListeners) * 0.75);
 }
 
-// Stub for tierFromLevel - returns default tier since Tunexa doesn't have XP system
+// Stub for tierFromLevel
 export function tierFromLevel(level: number): { name: string; color: string } {
   const tiers = [
     { name: 'bronze', color: '#cd7f32' },
@@ -121,6 +128,3 @@ export function tierFromLevel(level: number): { name: string; color: string } {
   const tierIndex = Math.min(Math.floor((level - 1) / 6), tiers.length - 1);
   return tiers[tierIndex];
 }
-
-// Re-export types for convenience
-export type { LayoutArtist };
